@@ -38,6 +38,7 @@ speed_analysis %>%
   group_by(is_coach, mode) %>% summarize(speed_ms = mean(speed), speed_kmh = mean(speed) * 3.6, count = n())
 
 
+#edit manaually
 speed_analysis %>%
   mutate(is_coach = if_else(mode == "bus", if_else(share_time > min_share & transfers < max_transfers, label_yes, label_no), label_yes)) %>%
   mutate(speed = if_else(is_coach == label_no, speed * 10.5/7.6, speed)) %>%
