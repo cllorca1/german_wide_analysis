@@ -2,22 +2,70 @@ pacman::p_load(data.table, dplyr, ggplot2, tidyr, readr, plotly, sf, tmap, rgeos
 
 upper_folder= "c:/models/germanymodel/"
 
-out_folder = paste(upper_folder, "output/5_percent_old/", sep = "")
+scens = c("walk_to_rail", "auto_to_rail")
 
-scenario = "_d0_c1_trips.csv"
+all_trips = data.frame()
 
-seeds = 1:8
+max_seed = 1
 
-trips = data.frame()
-
-for (seed in seeds){
-  this_trips = read_csv(paste(out_folder,seed,scenario, sep  =""))
-  this_trips$seed = seed
-  trips = trips %>% bind_rows(this_trips)
+for (scen in scens){
+  out_folder = paste(upper_folder, "output/",scen , "/", sep = "")
+  filename = "trips.csv"
+  seeds = 1:max_seed
+  trips = data.frame()
+  for (seed in seeds){
+    this_trips = read_csv(paste(out_folder,filename, sep  =""))
+    this_trips$seed = seed
+    trips = trips %>% bind_rows(this_trips)
+  }
+  all_trips = all_trips %>% bind_rows(trips %>% mutate(scen = scen))
 }
 
-trips %>% group_by(tripMode) %>% summarise(n())
 
+all_trips$dist_bin = cut(all_trips$travelDistanceByCar_km, breaks = seq(0,1000, 50))
+
+
+summary_trips = all_trips %>% group_by(dist_bin,tripMode, scen) %>%
+  summarise(n = n()/max_seed,
+            utility_auto = mean(as.numeric(utility_auto), na.rm = T),
+            utility_air =  mean(as.numeric(utility_air), na.rm = T),
+            utility_rail = mean(as.numeric(utility_rail), na.rm = T),
+            utility_bus = mean(as.numeric(utility_bus), na.rm = T))
+
+
+ggplot(summary_trips, aes(x = as.numeric(dist_bin)*50, y = n, fill = tripMode)) +
+  geom_bar(stat = "identity", position = "fill") + facet_grid(.~scen)
+
+ggplot(summary_trips, aes(x = dist_bin, y = n, fill = tripMode)) + geom_bar(stat = "identity", position = "stack") + 
+  facet_grid(.~scen)
+
+summary_trips_2 = all_trips %>% mutate(is_na = if_else(is.na(as.numeric(cost_rail)), 1,0)) %>% group_by(dist_bin, scen) %>%
+  summarise(n = n()/8,
+            impedance_auto = mean(as.numeric(impedance_auto), na.rm = T),
+            impedance_air =  mean(as.numeric(impedance_air), na.rm = T),
+            impedance_rail = mean(as.numeric(impedance_rail), na.rm = T),
+            impedance_bus = mean(as.numeric(impedance_bus), na.rm = T), is_na= sum(is_na))
+
+
+ggplot(summary_trips_2, aes(x = dist_bin, y = impedance_rail, color = scen, group = scen)) +
+  geom_line(stat = "identity")
+
+ggplot(summary_trips_2, aes(x = dist_bin, y = is_na, color = scen, group = scen)) +
+  geom_line(stat = "identity")
+
+
+ggplot(summary_trips_2, aes(x = dist_bin, y = impedance_bus, color = scen, group = scen)) +
+  geom_line(stat = "identity")
+
+ggplot(summary_trips_2, aes(x = dist_bin, y = impedance_auto, color = scen, group = scen)) +
+  geom_line(stat = "identity")
+
+summary_trips_0 = all_trips %>% group_by(tripMode, scen) %>%
+  summarise(n = n()/max_seed)
+#write.table(summary_trips_0, "clipboard", sep = "\t", row.names = F)
+
+
+ggplot(summary_trips_0, aes(x = tripMode, group = scen, y = n*5, fill = scen)) + geom_bar(stat = "identity", position = "dodge")
 
 #travel distance distribution
 
