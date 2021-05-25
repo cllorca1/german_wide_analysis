@@ -1,6 +1,6 @@
 pacman::p_load(readr, dplyr, tidyr, ggplot2)
 
-data_analysis = read_csv("scenarios/results_scenario_1.csv")
+data_analysis = read_csv("scenarios/results_scenario_1_v2.csv")
 
 data_analysis = data_analysis %>% filter(time_1 < 24 * 3600, time_2 < 24* 3600)
 # data_analysis %>% ggplot(aes(x = time_1)) + geom_histogram()
@@ -42,7 +42,7 @@ data_analysis_long %>% filter(name == "t") %>%
   ggplot(aes(x = value/3600,..density.., color = case)) + geom_freqpoly(size = 1) +
   theme_bw() + xlab("Travel time (h)") + ylab("Frequency")
 
-ggsave(filename = "tmp/travel_time_scenario_1.png", device = png(),
+ggsave(filename = "tmp/travel_time_scenario_1.jpg", device = "jpeg",
       width = 15, height= 10, units = "cm", scale = 1.5)
 
 
@@ -85,7 +85,7 @@ p = summary %>% filter(name== "t") %>%
 
 p
 
-ggsave(p, filename = "tmp/avg_travel_time_scenario_1_area_type.png", device = png(),
+ggsave(p, filename = "tmp/avg_travel_time_scenario_1_area_type.jpg", device = "jpeg",
         width = 15, height= 10, units = "cm", scale = 1.5)
 
 q = summary %>% filter(name== "t") %>%
