@@ -5,14 +5,17 @@ source("C:/code/omx/api/r/omx2.R")
 folder = "C:/models/transit_germany/output/skims/"
 
 scenarios = c("carWithToll", "carWithoutToll")
+matrix_names = c("/car_matrix_toll.omx", "/car_matrix_no_toll.omx")
 
 zones = 1:11879
 subsample = sample(zones,300)
 
 analysis = data.frame()
 
-for (scenario in scenarios){
-  path = paste(folder, scenario, "/car_matrix.omx", sep = "")
+for (i in 1:length(scenarios)){
+  scenario = scenarios[i]
+  matrix_name = matrix_names[i]
+  path = paste(folder, scenario, matrix_name, sep = "")
   distance = readMatrixOMX(path, "distance_m")
   toll_distance  = readMatrixOMX(path, "tollDistance_m")
   time = readMatrixOMX(path, "time_s")
@@ -39,7 +42,7 @@ analysis %>% filter(distance < 1000e3, distance > 0) %>%
   geom_freqpoly(size = 1, binwidth = 1) +
   xlab("Average travel speed (km/)") + ylab("Frequency") + theme_bw()
 
-ggsave(filename = "tmp/speed_scenario_4.png", device = png(),
+ggsave(filename = "tmp/speed_scenario_4.jpg", device = "jpeg",
        width = 15, height= 10, units = "cm", scale = 1.5)
 
 
@@ -58,7 +61,7 @@ analysis %>% filter(distance < 1000e3, distance > 0) %>%
   geom_freqpoly(size = 1, binwidth = 0.33) +
   xlab("Average time (h)") + ylab("Frequency") + theme_bw()
 
-ggsave(filename = "tmp/time_scenario_4.png", device = png(),
+ggsave(filename = "tmp/time_scenario_4.jpg", device = "jpeg",
        width = 15, height= 10, units = "cm", scale = 1.5)
 
 toll_cost = 0.05 / 1000
@@ -69,7 +72,7 @@ analysis %>% filter(distance < 1000e3, distance > 0) %>%
   geom_freqpoly(size = 1, binwidth = 5) +
   xlab("Average travel cost (EUR)") + ylab("Frequency") + theme_bw()
 
-ggsave(filename = "tmp/cost_scenario_4.png", device = png(),
+ggsave(filename = "tmp/cost_scenario_4.jpg", device = "jpeg",
        width = 15, height= 10, units = "cm", scale = 1.5)
 
 

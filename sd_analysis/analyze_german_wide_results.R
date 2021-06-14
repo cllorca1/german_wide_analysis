@@ -1,11 +1,21 @@
 pacman::p_load(dplyr, readr, ggplot2, tidyr)
 
 
-trips = read_csv("c:/models/mito/germany/scenOutput/testDCCalibr/2011/microData/trips.csv")
+trips = read_csv("c:/models/mito/germany/scenOutput/sd_1_percent_20210531/2011/microData/trips.csv")
+
+trips %>% ggplot(aes(x = distance, color = purpose)) + stat_ecdf(size = 1) +
+  theme_bw() + xlim(0,200)
+
+file_name = paste("tmp/",
+                  gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
+                  "_sd_dist_by_purpose.jpg", sep = "" )
+ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
+
 
 
 trips %>% ggplot(aes(x = distance, fill = purpose)) + geom_density() +
   theme_bw() + facet_wrap(.~purpose) + scale_x_log10()
+
 
 trips %>%
   mutate(intrazonal = if_else(origin == destination, 0.3, 0.5)) %>% 
@@ -50,6 +60,9 @@ mode_colors = c("autoDriver" = "#878787",
                 "bicycle" = "#87c77d",
                 "walk" = "#53815b")
 
+mode_order = c("autoDriver","autoPassenger","train" ,"tramOrMetro" ,"bus","bicycle" ,"walk")
+
+trip_summary$mode = factor(trip_summary$mode, levels = mode_order)
 
 ggplot(trip_summary, aes(x = as.factor(distance_bin), y = n, fill = as.factor(mode), alpha  =log(n))) +
   geom_bar(stat = "identity", position = "fill") +
@@ -58,8 +71,27 @@ ggplot(trip_summary, aes(x = as.factor(distance_bin), y = n, fill = as.factor(mo
   facet_wrap(.~purpose) + 
   theme(axis.text.x = element_text(angle  =90))
 
+file_name = paste("tmp/",
+                  gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
+                  "sd_modal_shares_by_dis.jpg", sep = "" )
+ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
+
+ggplot(trip_summary, aes(x = as.factor(distance_bin), y = n, fill = as.factor(mode))) +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(values = mode_colors) + 
+  theme_bw() + 
+  facet_wrap(.~purpose) + 
+  theme(axis.text.x = element_text(angle  =90))
+
+file_name = paste("tmp/",
+                  gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
+                  "sd_trips_by_dis.jpg", sep = "" )
+ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
+
 
 trip_summary_2 = trips %>% group_by(purpose, mode, BBSR_type) %>% summarize(n = n()) 
+
+trip_summary_2$mode = factor(trip_summary_2$mode, levels = mode_order)
 
 ggplot(trip_summary_2, aes(x = BBSR_type, y = n, fill = as.factor(mode))) +
   geom_bar(stat = "identity", position = "fill") +
@@ -68,7 +100,8 @@ ggplot(trip_summary_2, aes(x = BBSR_type, y = n, fill = as.factor(mode))) +
   facet_wrap(.~purpose) + 
   theme(axis.text.x = element_text(angle  =90))
 
-
-
-
+file_name = paste("tmp/",
+                  gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
+                  "sd_trips_by_area_type.jpg", sep = "" )
+ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
 
