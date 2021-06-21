@@ -1,13 +1,13 @@
 pacman::p_load(readr, dplyr, tidyr, ggplot2)
 
 
-population_germany_1_percent = 809000
+population_germany_1_percent = 807834
 population_munich_100_percent = 4424800
 
 purpose_order = c("HBW", "HBE", "HBS", "HBR", "HBO", "NHBW", "NHBO")
 
 sd_model_path = "c:/models/mito/germany/"
-sd_trips = read_csv(paste(sd_model_path, "scenOutput/sd_1_percent_20210603/2011/microData/trips.csv", sep = ""))
+sd_trips = read_csv(paste(sd_model_path, "scenOutput/sd_1_percent_20210614/2011/microData/trips.csv", sep = ""))
 all_sd_germany = sd_trips %>%
   group_by(purpose) %>%
   summarise(rate = n()/population_germany_1_percent, distance = mean(distance)) %>% 
@@ -72,8 +72,8 @@ car_ld_trips_germany %>%
 
 ##Read SP Germany and SP Munich
 
-hh_germany = read_csv(paste(sd_model_path, "microData/hh_100perc_2011.csv", sep = ""))
-pp_germany = read_csv(paste(sd_model_path, "microData/pp_1perc_2011.csv", sep = ""))
+hh_germany = read_csv(paste(sd_model_path, "microData/hh_mito_1_percent_2011.csv", sep = ""))
+pp_germany = read_csv(paste(sd_model_path, "microData/pp_mito_1_percent_2011.csv", sep = ""))
 
 hh_munich = read_csv(paste(sd_munich_model_path, "microData/hh_2011.csv", sep = ""))
 pp_munich = read_csv(paste(sd_munich_model_path, "microData/pp_2011.csv", sep = ""))

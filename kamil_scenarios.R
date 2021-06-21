@@ -17,7 +17,8 @@ sensitivity_analysis = sensitivity_analysis %>%
   group_by(travel_time, transfer_saving, access_egress, type, purpose, mode) %>%
   summarize(trips = sum(value))
 
-color_modes = c("air" = "gray10", "auto" = "gray50" , "bus" = "gray80", "rail" = "red")
+color_modes = c("auto" = "#aaaaaa", "auto_toll" = "#2d2d2d", "rail"  ="#764c6e", 
+                "bus" = "#bdc9bb", "air" = "#83adb5")
 
 ## factor = travel_time
 
@@ -31,7 +32,7 @@ sensitivity_analysis %>%
   scale_y_continuous(expand = c(0,0)) + 
   scale_fill_manual(values = color_modes)
 
-ggsave(filename = "tmp/shares_scenario_3_sa_time.png", device = png(),
+ggsave(filename = "tmp/shares_scenario_3_sa_time.jpg", device = "jpeg",
        width = 15, height= 10, units = "cm", scale = 1.5)
 
 sensitivity_analysis %>%
@@ -44,7 +45,7 @@ sensitivity_analysis %>%
   scale_y_continuous(expand = c(0,0), lim = c(0,25000)) + 
   scale_fill_manual(values = color_modes)
 
-ggsave(filename = "tmp/trips_scenario_3_sa_time.png", device = png(),
+ggsave(filename = "tmp/trips_scenario_3_sa_time.jpg", device = "jpeg",
        width = 15, height= 10, units = "cm", scale = 1.5)
 
 ## factor = access_egress
@@ -78,18 +79,19 @@ sensitivity_analysis %>%
   scale_y_continuous(expand = c(0,0)) + 
   scale_fill_manual(values = color_modes)
 
-ggsave(filename = "tmp/shares_scenario_3_sa_transfers.png", device = png(),
+ggsave(filename = "tmp/shares_scenario_3_sa_transfers.jpg", device = "jpeg",
        width = 15, height= 10, units = "cm", scale = 1.5)
 
 sensitivity_analysis %>%
   filter(access_egress == 100, travel_time == 100, mode == "rail") %>% 
   ggplot(aes(x = as.integer(transfer_saving), y = trips, fill = mode)) +
   geom_bar(stat = "identity") + 
+  geom_line(stat = "identity",color = "#B3B1B0") + 
   facet_grid(type ~ purpose) + 
   xlab("Time savings per transfer(min)") + ylab("Trips") + theme_bw() + 
   scale_y_continuous(expand = c(0,0), lim = c(0,25000)) + 
   scale_fill_manual(values = color_modes)
 
-ggsave(filename = "tmp/trips_scenario_3_sa_transfers.png", device = png(),
+ggsave(filename = "tmp/trips_scenario_3_sa_transfers.jpg", device = "jpeg",
        width = 15, height= 10, units = "cm", scale = 1.5)
 

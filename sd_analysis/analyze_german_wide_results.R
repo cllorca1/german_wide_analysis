@@ -1,7 +1,7 @@
 pacman::p_load(dplyr, readr, ggplot2, tidyr)
 
 
-trips = read_csv("c:/models/mito/germany/scenOutput/sd_1_percent_20210531/2011/microData/trips.csv")
+trips = read_csv("c:/models/mito/germany/scenOutput/sd_1_percent_20210614/2011/microData/trips.csv")
 
 trips %>% ggplot(aes(x = distance, color = purpose)) + stat_ecdf(size = 1) +
   theme_bw() + xlim(0,200)
@@ -104,4 +104,13 @@ file_name = paste("tmp/",
                   gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
                   "sd_trips_by_area_type.jpg", sep = "" )
 ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
+
+
+trip_summary_3 = trip_summary_2 %>% group_by(purpose, mode) %>% summarize(n = sum(n)) 
+
+ggplot(trip_summary_3, aes(x = purpose, y = n, fill = as.factor(mode))) +
+  geom_bar(stat = "identity", position = "fill") +
+  scale_fill_manual(values = mode_colors) + 
+  theme_bw() + scale_y_continuous(expand = c(0,0))
+
 

@@ -2,6 +2,8 @@ pacman::p_load(readr, dplyr, tidyr, ggplot2)
 
 speed_analysis = read_csv("scenarios/extendedBusNetworkCurrentSpeeds.csv")
 
+speed_analysis = speed_analysis %>% mutate(mode = recode(mode, "car" = "auto", "train" = "rail"))
+
 zonal_data = read_csv("c:/models/mito/germany/input/zoneSystemDE_2col.csv")
 
 
@@ -15,29 +17,33 @@ speed_analysis = speed_analysis %>% left_join(zonal_data, by = (c("o"="Zone")))
 speed_analysis = speed_analysis %>% left_join(zonal_data, by = (c("d"="Zone")),suffix = c("", "_d"))
 
 
-mode_colors = c("bus" = "#489245" , "train" = "#c34e4e", "car" = "gray20")
+mode_colors = colors_ld_modes  =c("auto" = "#aaaaaa", "auto_toll" = "#2d2d2d", "rail"  ="#764c6e", 
+                                  "bus" = "#bdc9bb", "air" = "#83adb5")
+linetype_ld_modes  =c("auto" = "solid", "auto_toll" = "solid", "rail"  ="11",
+                      "bus" = "11", "air" = "11")
+
+speed_analysis %>%
+  filter(speed > 0.1, speed < 40, dist > 50000, !is.na(share_time)) %>%
+  ggplot(aes(x = speed*3.6,..density.., color = mode, linetype = mode)) +
+  geom_freqpoly(size=2) +
+  theme_bw() + 
+  scale_color_manual(values = mode_colors, name = "Mode") +
+  scale_linetype_manual(values = linetype_ld_modes, name = "Mode") +
+  xlab("Average speed (door to door) (km/h)") + ylab("Frequency")
+
+ggsave(filename = "tmp/speed_before_scenario_2.jpg", device = "jpeg",
+        width = 15, height= 10, units = "cm", scale = 1.5)
 
 # 
 # speed_analysis %>%
-#   filter(speed > 0.1, speed < 40, dist > 50000, !is.na(share_time)) %>%
-#   ggplot(aes(x = speed*3.6,..density.., color = mode)) +
-#   geom_freqpoly(size=1) +
-#   theme_bw() + scale_color_manual(values = mode_colors) + 
-#   xlab("Average speed (door to door) (km/h)") + ylab("Frequency")
-
-# ggsave(filename = "tmp/speed_before_scenario_2.png", device = png(),
-#        width = 15, height= 10, units = "cm", scale = 1.5)
-
-
-speed_analysis %>%
-  filter(speed > 0.1, speed < 40, !is.na(share_time)) %>%
-  group_by(BBSR_type, BBSR_type_d, mode) %>%
-  summarize(time = mean(time), speed = mean(speed)) %>% 
-  ggplot(aes(x = BBSR_type_d, y = speed * 3.6, fill = mode)) +
-  geom_bar(stat = "identity") +
-  theme_bw() + scale_fill_manual(values = mode_colors) + 
-  ylab("Average speed (door to door) (km/hh)")  + 
-  facet_grid(BBSR_type ~ mode)
+#   filter(speed > 0.1, speed < 40, !is.na(share_time)) %>%
+#   group_by(BBSR_type, BBSR_type_d, mode) %>%
+#   summarize(time = mean(time), speed = mean(speed)) %>% 
+#   ggplot(aes(x = BBSR_type_d, y = speed * 3.6, fill = mode)) +
+#   geom_bar(stat = "identity") +
+#   theme_bw() + scale_fill_manual(values = mode_colors) + 
+#   ylab("Average speed (door to door) (km/hh)")  + 
+#   facet_grid(BBSR_type ~ mode)
 
 
 
@@ -49,17 +55,19 @@ label_no = paste("< 75% on LD bus")
 
 
 
-# speed_analysis %>%
-#   mutate(is_coach = if_else(mode == "bus", if_else(share_time > min_share & transfers < max_transfers, label_yes, label_no), label_yes)) %>%
-#   filter(speed > 0.1, speed < 40, dist > 50000, !is.na(share_time)) %>%
-#   ggplot(aes(x = speed*3.6, color = mode,..density.., linetype = is_coach)) +
-#   geom_freqpoly(size = 1) + theme_bw() + scale_color_manual(values = mode_colors) + 
-#   xlab("Average speed (door to door) (km/h)") + ylab("Frequency")
+speed_analysis %>%
+  mutate(is_coach = if_else(mode == "bus", if_else(share_time > min_share & transfers < max_transfers, label_yes, label_no), label_yes)) %>%
+  filter(speed > 0.1, speed < 40, dist > 50000, !is.na(share_time), mode == "bus") %>%
+  ggplot(aes(x = speed*3.6, color = mode,..density.., linetype = is_coach)) +
+  geom_freqpoly(size = 2) + theme_bw() + 
+  scale_color_manual(values = mode_colors, name = "Mode") +
+  scale_linetype_manual(values= c("solid", "12"), name = "") +
+  xlab("Average speed (door to door) (km/h)") + ylab("Frequency")
 
-# ggsave(filename = "tmp/speed_with_without_scenario_2.png", device = png(),
-#        width = 15, height= 10, units = "cm", scale = 1.5)
+ggsave(filename = "tmp/speed_with_without_scenario_2.jpg", device = "jpeg",
+       width = 15, height= 10, units = "cm", scale = 1.5)
 
-mode_bus_colors = c("#489245","#BAD6B9")
+mode_bus_colors = c("#bdc9bb", "#5e645d")
 
 
 speed_analysis %>%
@@ -71,7 +79,7 @@ speed_analysis %>%
   ggplot(aes(x = is_coach, y = speed*3.6, fill = is_coach)) +
   geom_bar(stat = "identity") +
   theme_bw() + 
-  scale_fill_manual(values = mode_bus_colors) + 
+  scale_fill_manual(values = mode_bus_colors, name = "") + 
   ylab("Average speed (door to door) (km/h)") + 
   facet_grid(BBSR_type ~ BBSR_type_d) + 
   theme(axis.text.x = element_text(angle = 90))
@@ -87,35 +95,37 @@ speed_analysis %>%
 
 
 #edit manaually
-# speed_analysis %>%
-#   mutate(is_coach = if_else(mode == "bus", if_else(share_time > min_share & transfers < max_transfers, label_yes, label_no), label_yes)) %>%
-#   mutate(speed = if_else(is_coach == label_no, speed * 10.5/7.6, speed)) %>%
-#   filter(speed > 0.1, speed < 40, dist > 50000, !is.na(share_time)) %>%
-#   ggplot(aes(x = speed*3.6, color = mode,..density.., linetype = is_coach)) +
-#   geom_freqpoly(size = 1) +
-#   theme_bw() + scale_color_manual(values = mode_colors) + 
-#   xlab("Average speed (door to door) (km/h)") + ylab("Frequency")
-
-# ggsave(filename = "tmp/speed_after_scenario_2.png", device = png(),
-#        width = 15, height= 10, units = "cm", scale = 1.5)
-
 speed_analysis %>%
   mutate(is_coach = if_else(mode == "bus", if_else(share_time > min_share & transfers < max_transfers, label_yes, label_no), label_yes)) %>%
-  mutate(speed = if_else(is_coach == label_no, speed * 10.3/7.7, speed)) %>%
-  filter(speed > 0.1, speed < 40, !is.na(share_time)) %>%
-  group_by(BBSR_type, BBSR_type_d, is_coach, mode) %>%
-  summarize(time = mean(time), speed = mean(speed)) %>% 
-  filter(mode == "bus") %>%
-  ggplot(aes(x = is_coach, y = speed * 3.6, fill = is_coach)) +
-  geom_bar(stat = "identity") +
-  theme_bw() +
-  scale_fill_manual(values = mode_bus_colors) + 
-  ylab("Average speed (door to door) (km/h)") + 
-  facet_grid(BBSR_type ~ BBSR_type_d) + 
-  theme(axis.text.x = element_text(angle = 90))
+  mutate(speed = if_else(is_coach == label_no, speed * 10.5/7.6, speed)) %>%
+  filter(speed > 0.1, speed < 40, dist > 50000, !is.na(share_time), mode == "bus") %>%
+  ggplot(aes(x = speed*3.6, color = mode,..density.., linetype = is_coach)) +
+  geom_freqpoly(size = 2) +
+  theme_bw() + 
+  scale_color_manual(values = mode_colors, name = "Mode") +
+  scale_linetype_manual(values= c("solid", "12"), name = "") +
+  xlab("Average speed (door to door) (km/h)") + ylab("Frequency")
 
-ggsave(filename = "tmp/speed_modfied_scenario_2.jpeg", device = "jpeg",
+ggsave(filename = "tmp/speed_after_scenario_2.jpg", device = "jpeg",
        width = 15, height= 10, units = "cm", scale = 1.5)
+
+# speed_analysis %>%
+#   mutate(is_coach = if_else(mode == "bus", if_else(share_time > min_share & transfers < max_transfers, label_yes, label_no), label_yes)) %>%
+#   mutate(speed = if_else(is_coach == label_no, speed * 10.3/7.7, speed)) %>%
+#   filter(speed > 0.1, speed < 40, !is.na(share_time)) %>%
+#   group_by(BBSR_type, BBSR_type_d, is_coach, mode) %>%
+#   summarize(time = mean(time), speed = mean(speed)) %>% 
+#   filter(mode == "bus") %>%
+#   ggplot(aes(x = is_coach, y = speed * 3.6, fill = is_coach)) +
+#   geom_bar(stat = "identity") +
+#   theme_bw() +
+#   scale_fill_manual(values = mode_bus_colors) + 
+#   ylab("Average speed (door to door) (km/h)") + 
+#   facet_grid(BBSR_type ~ BBSR_type_d) + 
+#   theme(axis.text.x = element_text(angle = 90))
+# 
+# ggsave(filename = "tmp/speed_modfied_scenario_2.jpeg", device = "jpeg",
+#        width = 15, height= 10, units = "cm", scale = 1.5)
 
 
 
@@ -137,14 +147,14 @@ old_speeds = speed_analysis %>%
   filter(mode == "bus") %>% 
   mutate(when = "1:before")
 
-mode_bus_colors_2 = c("#489245","#1B371A")
+mode_bus_colors_2 = c("#bdc9bb", "#e4e9e3")
 
 new_speeds %>%
   bind_rows(old_speeds) %>% 
   ggplot(aes(x = when, y = speed * 3.6, fill = when)) +
-  geom_bar(stat = "identity") +
+  geom_bar(stat = "identity", color = "#bdc9bb") +
   theme_bw() +
-  scale_fill_manual(values = mode_bus_colors_2) + 
+  scale_fill_manual(values = mode_bus_colors_2, name = "") + 
   ylab("Average speed (door to door) (km/h)") +
   facet_grid(BBSR_type ~ BBSR_type_d) + 
   theme(axis.text.x = element_text(angle = 90))
@@ -156,7 +166,7 @@ ggsave(filename = "tmp/speed_finals_scenario_2.jpeg", device = "jpeg",
 new_speeds %>%
   bind_rows(old_speeds) %>% 
   ggplot(aes(x = when, y = time /3600, fill = when)) +
-  geom_bar(stat = "identity") +
+  geom_bar(stat = "identity", color = "#bdc9bb") +
   theme_bw() +
   scale_fill_manual(values = mode_bus_colors_2) + 
   ylab("Average time (door to door) (h)") +

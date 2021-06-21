@@ -112,3 +112,29 @@ ggsave(filename = "tmp/avg_travel_distance_scenario_1_area_type.jpeg", device = 
        width = 15, height= 10, units = "cm", scale = 1.5)
 
 
+
+
+base_case = matrixdata %>% filter(alt == "base")
+
+base_case %>% sample_frac(0.1) %>%
+  ggplot(aes(x = access_time_s, y = access_distance_m)) + 
+  geom_point()
+
+base_case %>% 
+  filter(!is.infinite(access_distance_m), !is.infinite(access_time_s)) %>%
+  lm(formula = access_distance_m ~ access_time_s) %>% 
+  summary()
+
+
+
+base_case = matrixdata %>% filter(alt == "1")
+
+base_case %>% sample_frac(0.1) %>%
+  filter(transfer_count == 0) %>%
+  ggplot(aes(x = travel_time_s,
+             y = access_time_s + egress_time_s + in_vehicle_time_s,
+             color = transfer_count)) + 
+  geom_point() + 
+  geom_abline(intercept = 0, slope = 1, color = "red")
+  
+
