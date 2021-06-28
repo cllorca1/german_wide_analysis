@@ -1,10 +1,9 @@
 pacman::p_load(data.table, dplyr, ggplot2, tidyr, readr, plotly, sf, tmap, rgeos, RColorBrewer)
 
 out_folder= "Y:/projects/2019/BASt/data/input_files_LD/germanymodel/output/"
-ld_mode_order = c("auto", "auto_noToll", "bus", "rail", "air")
-colors_ld_modes  =c("auto" = "#B0B0B0", "auto_noToll" = "#6D6D6D", "rail"  ="#5e3c58", 
-                    "bus" = "#c7bbc9", "air" = "#83adb5")
-
+ld_mode_order = c("auto", "auto_toll", "bus", "rail", "air")
+colors_ld_modes  =c("auto" = "#aaaaaa", "auto_toll" = "#2d2d2d", "rail"  ="#764c6e", 
+                    "bus" = "#bdc9bb", "air" = "#83adb5")
 
 scenarios = c("0", 
               "1_A_0",
@@ -25,15 +24,22 @@ scenarios = c("0",
               "3_C_1",
               "4_A_0_0.25",
               "4_A_1",
-              "4_A_2")
+              "4_A_2", 
+              "7_A_1",
+              "7_A_2",
+              "7_A_3")
 
 scenario_names = scenarios
 scenario_groups = substr(scenarios, 1,1)
 
 scenario_parameters = read_csv("tmp/scenario_labels.csv")
 scenario_parameters = scenario_parameters %>%
-  mutate(label = paste(scenario, "\n(", var1, "=", val1, ", ",  var2, "=", val2, ")", sep  ="")) %>%
-  mutate(label2 = paste(scenario, "\n", var1, "=", val1, "\n",  var2, "=", val2, "", sep  =""))
+  mutate(label = if_else(!is.na(var2), 
+                         paste(scenario, "\n(", var1, "=", val1, ", ",  var2, "=", val2, ")", sep  ="") , 
+                         paste(scenario, "\n(", var1, "=", val1, ")", sep  =""))) %>%
+  mutate(label2 = if_else(!is.na(var2), 
+                          paste(scenario, "\n", var1, "=", val1, "\n",  var2, "=", val2, "", sep  =""),
+                          paste(scenario, "\n", var1, "=", val1, sep  ="")))
 
 #manually correct the label of base scenario
 scenario_parameters$label[1] = "0"
@@ -51,6 +57,11 @@ for (i in 1:length(scenarios)){
   trips = trips %>% bind_rows(this_trips)
   print(scenario_folder)
 }
+
+
+trips = trips %>% mutate(tripMode = if_else(scenario_group == "4", 
+                                            recode(tripMode, "auto" = "auto_toll", "auto_noToll" = "auto"),
+                                            tripMode))
 
 #summary(as.factor(trips$tripMode))
 
@@ -125,7 +136,7 @@ for (i in 1:4){
     scale_fill_manual(values = colors_ld_modes, name = "Mode") + 
     theme(axis.text.x = element_text(angle = 0), legend.position = "bottom") + 
     xlab("Scenario") + ylab("Modal share")
-  
+
   file_name = paste("tmp/",
                     gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
                     "_modal_shares_fill_",group, ".jpg", sep = "" )
@@ -133,6 +144,19 @@ for (i in 1:4){
   
  
 }
+
+#only for a particulat analysis of the random noise
+i=3
+trip_count %>%
+  filter(scenario_group == 0 | scenario_group == group) %>%
+  group_by(scenario_name) %>%
+  mutate(total = sum(trips)) %>% 
+  ggplot(aes(x = label2, y = trips/total, fill = tripMode, label = paste(sprintf("%.3f", trips/total * 100), "%", sep  =""))) +
+  geom_bar(position  = "stack", stat = "identity") +
+  scale_fill_manual(values = colors_ld_modes, name = "Mode") + 
+  theme(axis.text.x = element_text(angle = 0), legend.position = "bottom") + 
+  xlab("Scenario") + ylab("Modal share") + geom_text(position  = position_stack(vjust = 0.5))
+
 
 re_scale_factor = 1/0.05
 
@@ -165,7 +189,7 @@ for (i in 1:3){
 i = 4
 group = groups[i]
 trips_scenario = trip_count %>%
-  filter(scenario_group == group, tripMode %in% c("auto", "auto_noToll")) %>%
+  filter(scenario_group == group, tripMode %in% c("auto", "auto_toll")) %>%
   group_by(scenario_name, label2) %>% 
   summarize(trips = sum(trips)) %>% mutate(tripMode = "auto")
 
@@ -189,6 +213,16 @@ file_name = paste("tmp/",
 ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
 
 
+#first approach to toll payments
+trips %>%
+  filter(scenario_group == "4", international == FALSE) %>%
+  filter(tripMode == "auto" | tripMode == "auto_toll") %>%
+  mutate(factor = if_else(tripState == "daytrip", 2, if_else(tripState == "away", 0, 1))) %>% 
+  group_by(scenario_name, tripMode) %>%
+  summarize(n = n(), d = sum(as.numeric(distance_auto) * factor, na.rm = T), 
+            toll_d =  sum(as.numeric(tollDistance_auto)* factor, na.rm= T),
+            toll_d_no_toll =  sum(as.numeric(tollDistance_auto_noToll)* factor, na.rm= T)) %>% 
+  write.table("clipboard", sep = "\t", row.names = F)
 
 
 
@@ -310,3 +344,62 @@ ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "
 #   facet_wrap(.~tripDestType, scales = "free_y") + 
 #   theme(axis.text.x = element_text(angle = 90), legend.position = "bottom")
 # 
+
+
+##using shares instead of counts
+
+trips2 = trips %>% filter(scenario_group == "3" | scenario_group == "0") %>% 
+  select(tripId, international, tripPurpose, 
+         tripState, travelDistanceByCar_km, 
+         utility_air, utility_auto,
+         utility_auto_noToll, utility_rail,
+         utility_bus, tripMode,
+         scenario_name, scenario_group, 
+         tripDestType) %>%
+  mutate(utility_auto = as.numeric(utility_auto)) %>% 
+  mutate(utility_auto_noToll = as.numeric(utility_auto_noToll)) %>% 
+  mutate(utility_air = as.numeric(utility_air)) %>% 
+  mutate(utility_rail = as.numeric(utility_rail)) %>% 
+  mutate(utility_bus = as.numeric(utility_bus))
+  
+  
+  
+trips2[is.na(trips2)] = 0
+  
+trips2 = trips2 %>%
+  mutate(sum = utility_auto + utility_auto_noToll + utility_air + 
+           utility_rail + utility_bus)
+
+trips2 = trips2 %>%
+  mutate(utility_auto = if_else(sum == 0, 1,utility_auto))
+ 
+
+
+trip_shares = trips2 %>%
+  filter(travelDistanceByCar_km < 10000 ) %>% 
+  filter(tripState != "away", tripDestType != "EXTOVERSEAS") %>%
+  group_by(scenario_name, scenario_group) %>%
+  summarize(trips = n(), auto = mean(utility_auto), auto_noToll = mean(utility_auto_noToll), 
+            rail = mean(utility_rail) , bus = mean(utility_bus),
+            air = mean(utility_air))
+
+trip_shares = trip_shares %>% left_join(scenario_parameters, by = c("scenario_name" = "scenario"))
+
+trip_shares = trip_shares %>% pivot_longer(cols = c(auto, auto_noToll,air, rail, bus))
+
+trip_shares = trip_shares %>% mutate(name = factor(name, levels = ld_mode_order))
+
+
+trip_shares %>% 
+  filter(name != "auto_toll") %>% 
+  ggplot(aes(x = label2, y = value, fill = name, label = paste(sprintf("%.3f", value * 100), "%", sep  =""))) +
+  geom_bar(position  = "stack", stat = "identity") +
+  scale_fill_manual(values = colors_ld_modes, name = "Mode") + 
+  theme(axis.text.x = element_text(angle = 0), legend.position = "bottom") + 
+  xlab("Scenario") + ylab("Modal share") + 
+  geom_text(position = position_stack(vjust = 0.5))
+
+
+
+
+
