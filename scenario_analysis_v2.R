@@ -5,6 +5,8 @@ ld_mode_order = c("auto", "auto_toll", "bus", "rail", "air")
 colors_ld_modes  =c("auto" = "#aaaaaa", "auto_toll" = "#2d2d2d", "rail"  ="#764c6e", 
                     "bus" = "#bdc9bb", "air" = "#83adb5")
 
+save_plots = F
+
 scenarios = c("0", 
               "1_A_0",
               "1_A_1",
@@ -32,7 +34,7 @@ scenarios = c("0",
 scenario_names = scenarios
 scenario_groups = substr(scenarios, 1,1)
 
-scenario_parameters = read_csv("tmp/scenario_labels.csv")
+scenario_parameters = read_csv("scenarios/scenario_labels.csv")
 scenario_parameters = scenario_parameters %>%
   mutate(label = if_else(!is.na(var2), 
                          paste(scenario, "\n(", var1, "=", val1, ", ",  var2, "=", val2, ")", sep  ="") , 
@@ -46,6 +48,7 @@ scenario_parameters$label[1] = "0"
 scenario_parameters$label2[1] = "0"
 
 scenario_parameters = scenario_parameters %>% select(scenario, label, label2)
+
 
 trips = data.frame()
 
@@ -63,33 +66,13 @@ trips = trips %>% mutate(tripMode = if_else(scenario_group == "4",
                                             recode(tripMode, "auto" = "auto_toll", "auto_noToll" = "auto"),
                                             tripMode))
 
-#summary(as.factor(trips$tripMode))
+trip_sumamry = trips %>%
+  filter(travelDistanceByCar_km < 10000 ) %>% 
+  filter(tripState != "away", tripDestType != "EXTOVERSEAS") %>%
+  group_by(tripMode, scenario_name, scenario_group, tripState, tripPurpose) %>%
+  summarize(trips = n(), distance = sum(travelDistanceByCar_km))
 
-
-##Destination choice
-# trips_by_distance = trips %>%
-#   filter(tripState != "away", tripDestType != "EXTOVERSEAS") %>%
-#   mutate(dist_bin = cut(travelDistanceByCar_km, breaks = seq(0,2000,20))) %>%
-#   group_by(tripPurpose, tripDestType, scenario_name, scenario_group) %>%
-#   mutate(total = n()) %>% group_by(tripPurpose, tripDestType, scenario_name, dist_bin, total) %>%
-#   summarise(n = n())
-# 
-# trips_by_distance %>% ggplot(aes(x = as.numeric(dist_bin)*20, y = n/total * 100, color = scenario_name)) +
-#   geom_line(stat = "identity", size = 1) + facet_wrap(tripDestType~tripPurpose, scales = "free_y", ncol = 3) + 
-#   geom_vline(xintercept = 50, color = "gray70") + theme_bw()
-# 
-# 
-# trips_by_distance %>% ggplot(aes(x = as.numeric(dist_bin)*20, y = n/total * 100, color = scenario_name)) +
-#   geom_line(stat = "identity", size = 1) + facet_wrap(tripDestType~tripPurpose, scales = "free_y", ncol = 3) + 
-#   geom_vline(xintercept = 50, color = "gray70") + theme_bw() + scale_x_log10()
-# 
-# 
-# 
-# file_name = paste("tmp/", gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),"_dist_distr.jpg", sep = "" )
-# ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
-
-
-##Mode choice
+#####Mode choice with all scenarios######
 trip_count = trips %>%
   filter(travelDistanceByCar_km < 10000 ) %>% 
   filter(tripState != "away", tripDestType != "EXTOVERSEAS") %>%
@@ -97,32 +80,207 @@ trip_count = trips %>%
   summarize(trips = n(), distance = sum(travelDistanceByCar_km))
 
 trip_count = trip_count %>% mutate(tripMode = factor(tripMode, levels = ld_mode_order))
+trip_count = trip_count %>% left_join(scenario_parameters, by = c("scenario_name" = "scenario"))
+
+trip_count %>% write_csv(paste(out_folder, "summary_1.csv", sep = ""))
+
+########################################
+##start from here if already written!
+#########################################
+trip_count = read_csv(paste(out_folder, "summary_1.csv", sep = ""))
+trip_count = trip_count %>% mutate(tripMode = factor(tripMode, levels = ld_mode_order))
+
+
+trip_count %>%
+  ggplot(aes(x = label, y = trips, fill = tripMode)) +
+  geom_bar(position  = "fill", stat = "identity") +
+  scale_fill_manual(values = colors_ld_modes, name = "Mode") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1), legend.position = "bottom") + 
+  xlab("Scenario") + ylab("Modal share") 
+
+if (save_plots){
+  file_name = paste("tmp/",
+                    gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
+                    "_modal_shares_fill.jpg", sep = "" )
+  ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
+}
+
+
+trip_count %>%
+  ggplot(aes(x = label, y = distance, fill = tripMode)) +
+  geom_bar(position  = "fill", stat = "identity") +
+  scale_fill_manual(values = colors_ld_modes, name = "Mode") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1), legend.position = "bottom") + 
+  xlab("Scenario") + ylab("Modal share based on travelled distance (by car)") 
+
+## plot only the relative differences of the car modal share: 
+
+trip_count_relative = trip_count %>%
+  mutate(mode = if_else(tripMode == "auto_toll", "auto", as.character(tripMode))) %>%
+  group_by(scenario_name) %>% 
+  mutate(total = sum(trips))
+
+trip_count_relative_base = trip_count_relative %>%
+  filter(scenario_group == "0") %>% 
+  mutate(trips_base = trips, distance_base = distance) %>%
+  ungroup() %>%
+  select(mode, distance_base, trips_base, total_base = total)
+
+trip_count_relative = trip_count_relative %>%
+  filter(scenario_group != "0") %>%
+  left_join(trip_count_relative_base, by = c("mode")) %>% 
+  group_by(scenario_name, scenario_group, label, label2, mode, total, trips_base, total_base, distance_base) %>% 
+  summarize(trips = sum(trips), distance = sum(distance))
+ 
+
+trip_count_relative %>%
+  filter(mode == "auto") %>% 
+  ggplot(aes(x = label, y = (trips/total - trips_base/total_base)*100, group = mode, color = mode)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  scale_color_manual(values = colors_ld_modes, name = "Mode") + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1), legend.position = "none") + 
+  xlab("Scenario") + ylab("Difference in auto modal share (p.p.)") + 
+  geom_hline(yintercept = 0, color = "black")
+
+
+##Mode choice by zone type #####
+zonal_data = read_csv("scenarios/zoneSystemDE_2col.csv")
+zonal_data$BBSR_type = recode(as.character(zonal_data$BBSR_type), 
+                              "10" = "10: core",
+                              "20" = "20: medium_city",
+                              "30" = "30:town",
+                              "40" = "40: rural")
+
+
+trips = trips %>% left_join(zonal_data, by = c("tripOriginZone" = "Zone")) %>%
+  mutate(type_o = BBSR_type) %>% select(-BBSR_type)
+  
+trips = trips %>% left_join(zonal_data, by = c("tripDestZone" = "Zone")) %>%
+  mutate(type_d = BBSR_type) %>% select(-BBSR_type)
+
+
+trip_count = trips %>%
+  filter(travelDistanceByCar_km < 10000 ) %>% 
+  filter(tripState != "away", tripDestType != "EXTOVERSEAS") %>%
+  group_by(tripMode, scenario_name, scenario_group, type_o, type_d) %>%
+  summarize(trips = n(), distance = sum(travelDistanceByCar_km))
 
 trip_count = trip_count %>% left_join(scenario_parameters, by = c("scenario_name" = "scenario"))
 
+trip_count %>% write_csv(paste(out_folder, "summary_2.csv", sep = ""))
+########################################
+##start from here if already written!
+#########################################
+trip_count = read_csv(paste(out_folder, "summary_2.csv", sep = ""))
+
+
+trip_count = trip_count %>% mutate(tripMode = factor(tripMode, levels = ld_mode_order))
 
 trip_count %>%
-  ggplot(aes(x = label, y = trips, fill = tripMode)) +
+  filter(!is.na(type_d)) %>%
+  ggplot(aes(x = scenario_name, y = trips, fill = tripMode)) +
   geom_bar(position  = "fill", stat = "identity") +
   scale_fill_manual(values = colors_ld_modes, name = "Mode") + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1), legend.position = "bottom") + 
-  xlab("Scenario") + ylab("Modal share")
+  xlab("Scenario") + ylab("Modal share")  + 
+  facet_grid(type_o ~ type_d)
 
+
+## and in relative terms, for auto only, for origin only:
+
+trip_count_relative = trip_count %>%
+  mutate(mode = if_else(tripMode == "auto_toll", "auto", as.character(tripMode))) %>%
+  group_by(scenario_name, type_o, type_d) %>% 
+  mutate(total = sum(trips))
+
+trip_count_relative_base = trip_count_relative %>%
+  filter(scenario_group == "0") %>% 
+  mutate(trips_base = trips, distance_base = distance) %>%
+  ungroup() %>%
+  select(mode, distance_base, trips_base, total_base = total, type_o, type_d)
+
+trip_count_relative = trip_count_relative %>%
+  filter(scenario_group != "0") %>%
+  left_join(trip_count_relative_base, by = c("mode", "type_o", "type_d")) %>% 
+  group_by(scenario_name, scenario_group, type_d, type_o, label, label2, mode, total, trips_base, total_base, distance_base) %>% 
+  summarize(trips = sum(trips), distance = sum(distance))
+
+
+trip_count_relative %>%
+  filter(mode == "auto") %>% 
+  filter(!is.na(type_d)) %>%
+  ggplot(aes(x = scenario_name, y = (trips/total - trips_base/total_base)*100, group = paste(type_o, mode), color = type_o)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1), legend.position = "bottom") + 
+  xlab("Scenario") + ylab("Difference in auto modal share (p.p.)") + 
+  geom_hline(yintercept = 0, color = "black") + 
+  facet_grid(~type_d)
+
+
+
+##Mode choice by trip purpose and type #####
+trip_count = trips %>%
+  filter(travelDistanceByCar_km < 10000 ) %>% 
+  filter(tripState != "away", tripDestType != "EXTOVERSEAS") %>%
+  group_by(tripMode, scenario_name, scenario_group, tripPurpose, tripState) %>%
+  summarize(trips = n(), distance = sum(travelDistanceByCar_km))
+
+
+trip_count = trip_count %>% left_join(scenario_parameters, by = c("scenario_name" = "scenario"))
+trip_count %>% write_csv(paste(out_folder, "summary_3.csv", sep = ""))
+########################################
+##start from here if already written!
+#########################################
+trip_count = read_csv(paste(out_folder, "summary_3.csv", sep = ""))
+
+trip_count = trip_count %>% mutate(tripMode = factor(tripMode, levels = ld_mode_order))
 
 trip_count %>%
-  ggplot(aes(x = label, y = trips, fill = tripMode)) +
+  ggplot(aes(x = scenario_name, y = trips, fill = tripMode)) +
   geom_bar(position  = "fill", stat = "identity") +
   scale_fill_manual(values = colors_ld_modes, name = "Mode") + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1), legend.position = "bottom") + 
-  xlab("Scenario") + ylab("Modal share") + 
-  geom_hline(yintercept = .196, linetype = "dashed")
+  xlab("Scenario") + ylab("Modal share")  + 
+  facet_grid(tripState ~ tripPurpose)
+
+## and in relative terms, for auto only, for origin only:
+trip_count_relative = trip_count %>%
+  mutate(mode = if_else(tripMode == "auto_toll", "auto", as.character(tripMode))) %>%
+  group_by(scenario_name, tripPurpose, tripState) %>% 
+  mutate(total = sum(trips))
+
+trip_count_relative_base = trip_count_relative %>%
+  filter(scenario_group == "0") %>% 
+  mutate(trips_base = trips, distance_base = distance) %>%
+  ungroup() %>%
+  select(mode, distance_base, trips_base, total_base = total, tripPurpose, tripState)
+
+trip_count_relative = trip_count_relative %>%
+  filter(scenario_group != "0") %>%
+  left_join(trip_count_relative_base, by = c("mode", "tripPurpose", "tripState")) %>% 
+  group_by(scenario_name, scenario_group, tripState, tripPurpose, label, label2, mode, total, trips_base, total_base, distance_base) %>% 
+  summarize(trips = sum(trips), distance = sum(distance))
 
 
-file_name = paste("tmp/",
-                  gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
-                  "_modal_shares_fill.jpg", sep = "" )
-ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
+trip_count_relative %>%
+  filter(mode == "auto") %>% 
+  ggplot(aes(x = scenario_name, y = (trips/total - trips_base/total_base)*100, group = paste(tripState, mode), color = tripState)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1), legend.position = "bottom") + 
+  xlab("Scenario") + ylab("Difference in auto modal share (p.p.)") + 
+  geom_hline(yintercept = 0, color = "black") + 
+  facet_grid(~tripPurpose)
 
+
+
+
+##by scenario groups
 
 groups = c("1", "2", "3", "4")
 mode_of_interest = c("1" = "rail", "2" = "bus", "3" = "rail", "4" = "auto")
@@ -137,12 +295,12 @@ for (i in 1:4){
     theme(axis.text.x = element_text(angle = 0), legend.position = "bottom") + 
     xlab("Scenario") + ylab("Modal share")
 
-  file_name = paste("tmp/",
-                    gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
-                    "_modal_shares_fill_",group, ".jpg", sep = "" )
-  ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
-  
- 
+  if (save_plots){
+    file_name = paste("tmp/",
+                      gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
+                      "_modal_shares_fill_",group, ".jpg", sep = "" )
+    ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
+  }
 }
 
 #only for a particulat analysis of the random noise
@@ -179,10 +337,12 @@ for (i in 1:3){
     xlab("Scenario") + ylab("Difference with respect of the base scenario (%)") + 
     geom_hline(yintercept = 0, color = "black")
   
-  file_name = paste("tmp/",
-                    gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
-                    "_modal_shares_parallel_",group, ".jpg", sep = "" )
-  ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
+  if (save_plots){
+    file_name = paste("tmp/",
+                      gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
+                      "_modal_shares_parallel_",group, ".jpg", sep = "" )
+    ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
+  }
 }
 
 #toll scenarios are different, since there are two interesting modes
@@ -207,10 +367,14 @@ trips_scenario %>%
   xlab("Scenario") + ylab("Difference with respect of the base scenario (%)") + 
   geom_hline(yintercept = 0, color = "black")
 
-file_name = paste("tmp/",
-                  gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
-                  "_modal_shares_parallel_",group, ".jpg", sep = "" )
-ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
+if (save_plots){
+  file_name = paste("tmp/",
+                    gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
+                    "_modal_shares_parallel_",group, ".jpg", sep = "" )
+  ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
+  
+}
+
 
 
 #first approach to toll payments
@@ -238,13 +402,17 @@ trips %>%
 
 re_scale_factor = 20
 
-trip_count %>%
-  select(scenario = scenario_name, scenario_group, mode = tripMode, trips, distance) %>%
-  mutate(trips = trips * re_scale_factor) %>%
-  group_by(scenario) %>%
-  mutate(total = sum(trips)) %>% mutate(share = trips / total * 100) %>% 
-  pivot_wider(names_from = mode, values_from = c(trips, share,distance)) %>% 
-  write_csv("tmp/modal_shares_by_scenario.csv")
+if (save_plots){
+  trip_count %>%
+    select(scenario = scenario_name, scenario_group, mode = tripMode, trips, distance) %>%
+    mutate(trips = trips * re_scale_factor) %>%
+    group_by(scenario) %>%
+    mutate(total = sum(trips)) %>% mutate(share = trips / total * 100) %>% 
+    pivot_wider(names_from = mode, values_from = c(trips, share,distance)) %>% 
+    write_csv("tmp/modal_shares_by_scenario.csv")
+}
+
+
   
 
 ##trips by length and mode
@@ -265,139 +433,68 @@ trip_count %>% filter(scenario_name == scenario_names[1]) %>%
   theme(axis.text.x = element_text(angle = 90), legend.position = "bottom") + 
   xlab("Distance (km)") + ylab("Share")
 
-file_name = paste("tmp/",
-                  gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
-                  "_modal_shares_by_dis_base.jpg", sep = "" )
-ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
-
-
-
-# 
-# trip_count %>% 
-#   ggplot(aes(x = as.numeric(dist_bin)*20, y = trips, fill = tripMode, color = tripMode)) + 
-#   geom_bar(position  = position_fill(reverse  =T), stat = "identity") +
-#   scale_fill_manual(values = colors_ld_modes) + 
-#   scale_color_manual(values = colors_ld_modes) + 
-#   theme(axis.text.x = element_text(angle = 90), legend.position = "bottom") + 
-#   facet_wrap(.~scenario_name)
-# 
-# file_name = paste("tmp/",
-#                   gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
-#                   "_modal_shares_by_dis_all.jpg", sep = "" )
-# ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
-
-
-# trips_by_zone = trips %>% filter(tripState != "away", tripDestType != "EXTOVERSEAS") %>%
-#   filter(scenario_name == "0:base") %>% 
-#   group_by(tripOriginZone, tripMode) %>%
-#   summarise(trips = n())
-# 
-# trips_by_zone = trips_by_zone %>% ungroup() %>% group_by(tripOriginZone) %>% mutate(total = sum(trips))
-# 
-# zone_shp = st_read("C:/models/germanymodel/input/trafficAssignment/zonesShapefile/zonesNew.shp")
-# 
-# 
-# p =  tm_basemap(leaflet::providers$CartoDB)
-# 
-# #for (mode in ld_mode_order){
-# mode = "auto"
-# trips_by_zone_this_mode = trips_by_zone %>% filter(tripMode == mode) %>%
-#   ungroup()
-# this_shp = zone_shp %>%
-#   select(TAZ_id) %>%
-#   left_join(trips_by_zone_this_mode , by = c("TAZ_id" = "tripOriginZone")) 
-# this_shp$share = this_shp$trips / this_shp$total
-# p = p + tm_shape(shp = this_shp, name = "mode") +
-#   tm_fill(col = "share", alpha = 0.7, border.alpha = 0.1, convert2density = F, style = "quantile")
-# #}
-# 
-# tmap_leaflet(p)
-
-
-# trip_count_2 = trips %>%
-#   mutate(dist_bin = cut(travelDistanceByCar_km, breaks = seq(0,2000,20))) %>%
-#   filter(tripState != "away", tripDestType != "EXTOVERSEAS") %>%
-#   group_by(tripMode, tripDestType, scenario_name,dist_bin) %>%
-#   summarize(trips = n(), distance = sum(travelDistanceByCar_km))
-# 
-# trip_count_2 = trip_count_2 %>% mutate(tripMode = factor(tripMode, levels = ld_mode_order))
-# 
-#  
-# trip_count_2 %>% filter(scenario_name == scenario_names[1]) %>% 
-#   ggplot(aes(x = as.numeric(dist_bin)*20, y = trips, fill = tripMode, color = tripMode)) + 
-#   geom_bar(position  = position_fill(reverse  =T), stat = "identity") +
-#   scale_fill_manual(values = colors_ld_modes) + 
-#   scale_color_manual(values = colors_ld_modes) + 
-#   facet_wrap(.~tripDestType) + 
-#   theme(axis.text.x = element_text(angle = 90), legend.position = "bottom")
-# 
-# file_name = paste("tmp/",
-#                   gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
-#                   "_modal_shares_by_dis_base_by_segment.jpg", sep = "" )
-# ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
-# 
-# trip_count_2 %>% filter(scenario_name == scenario_names[1]) %>% 
-#   ggplot(aes(x = as.numeric(dist_bin)*20, y = trips, fill = tripMode, color = tripMode)) + 
-#   geom_bar(position  = position_stack(reverse  =T), stat = "identity") +
-#   scale_fill_manual(values = colors_ld_modes) + 
-#   scale_color_manual(values = colors_ld_modes) + 
-#   facet_wrap(.~tripDestType, scales = "free_y") + 
-#   theme(axis.text.x = element_text(angle = 90), legend.position = "bottom")
-# 
+if (save_plots){
+  file_name = paste("tmp/",
+                    gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
+                    "_modal_shares_by_dis_base.jpg", sep = "" )
+  ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
+}
 
 
 ##using shares instead of counts
+# 
+# trips2 = trips %>% filter(scenario_group == "3" | scenario_group == "0") %>% 
+#   select(tripId, international, tripPurpose, 
+#          tripState, travelDistanceByCar_km, 
+#          utility_air, utility_auto,
+#          utility_auto_noToll, utility_rail,
+#          utility_bus, tripMode,
+#          scenario_name, scenario_group, 
+#          tripDestType) %>%
+#   mutate(utility_auto = as.numeric(utility_auto)) %>% 
+#   mutate(utility_auto_noToll = as.numeric(utility_auto_noToll)) %>% 
+#   mutate(utility_air = as.numeric(utility_air)) %>% 
+#   mutate(utility_rail = as.numeric(utility_rail)) %>% 
+#   mutate(utility_bus = as.numeric(utility_bus))
+#   
+#   
+#   
+# trips2[is.na(trips2)] = 0
+#   
+# trips2 = trips2 %>%
+#   mutate(sum = utility_auto + utility_auto_noToll + utility_air + 
+#            utility_rail + utility_bus)
+# 
+# trips2 = trips2 %>%
+#   mutate(utility_auto = if_else(sum == 0, 1,utility_auto))
+#  
+# 
+# 
+# trip_shares = trips2 %>%
+#   filter(travelDistanceByCar_km < 10000 ) %>% 
+#   filter(tripState != "away", tripDestType != "EXTOVERSEAS") %>%
+#   group_by(scenario_name, scenario_group) %>%
+#   summarize(trips = n(), auto = mean(utility_auto), auto_noToll = mean(utility_auto_noToll), 
+#             rail = mean(utility_rail) , bus = mean(utility_bus),
+#             air = mean(utility_air))
+# 
+# trip_shares = trip_shares %>% left_join(scenario_parameters, by = c("scenario_name" = "scenario"))
+# 
+# trip_shares = trip_shares %>% pivot_longer(cols = c(auto, auto_noToll,air, rail, bus))
+# 
+# trip_shares = trip_shares %>% mutate(name = factor(name, levels = ld_mode_order))
+# 
+# 
+# trip_shares %>% 
+#   filter(name != "auto_toll") %>% 
+#   ggplot(aes(x = label2, y = value, fill = name, label = paste(sprintf("%.3f", value * 100), "%", sep  =""))) +
+#   geom_bar(position  = "stack", stat = "identity") +
+#   scale_fill_manual(values = colors_ld_modes, name = "Mode") + 
+#   theme(axis.text.x = element_text(angle = 0), legend.position = "bottom") + 
+#   xlab("Scenario") + ylab("Modal share") + 
+#   geom_text(position = position_stack(vjust = 0.5))
 
-trips2 = trips %>% filter(scenario_group == "3" | scenario_group == "0") %>% 
-  select(tripId, international, tripPurpose, 
-         tripState, travelDistanceByCar_km, 
-         utility_air, utility_auto,
-         utility_auto_noToll, utility_rail,
-         utility_bus, tripMode,
-         scenario_name, scenario_group, 
-         tripDestType) %>%
-  mutate(utility_auto = as.numeric(utility_auto)) %>% 
-  mutate(utility_auto_noToll = as.numeric(utility_auto_noToll)) %>% 
-  mutate(utility_air = as.numeric(utility_air)) %>% 
-  mutate(utility_rail = as.numeric(utility_rail)) %>% 
-  mutate(utility_bus = as.numeric(utility_bus))
-  
-  
-  
-trips2[is.na(trips2)] = 0
-  
-trips2 = trips2 %>%
-  mutate(sum = utility_auto + utility_auto_noToll + utility_air + 
-           utility_rail + utility_bus)
 
-trips2 = trips2 %>%
-  mutate(utility_auto = if_else(sum == 0, 1,utility_auto))
- 
-
-
-trip_shares = trips2 %>%
-  filter(travelDistanceByCar_km < 10000 ) %>% 
-  filter(tripState != "away", tripDestType != "EXTOVERSEAS") %>%
-  group_by(scenario_name, scenario_group) %>%
-  summarize(trips = n(), auto = mean(utility_auto), auto_noToll = mean(utility_auto_noToll), 
-            rail = mean(utility_rail) , bus = mean(utility_bus),
-            air = mean(utility_air))
-
-trip_shares = trip_shares %>% left_join(scenario_parameters, by = c("scenario_name" = "scenario"))
-
-trip_shares = trip_shares %>% pivot_longer(cols = c(auto, auto_noToll,air, rail, bus))
-
-trip_shares = trip_shares %>% mutate(name = factor(name, levels = ld_mode_order))
-
-
-trip_shares %>% 
-  filter(name != "auto_toll") %>% 
-  ggplot(aes(x = label2, y = value, fill = name, label = paste(sprintf("%.3f", value * 100), "%", sep  =""))) +
-  geom_bar(position  = "stack", stat = "identity") +
-  scale_fill_manual(values = colors_ld_modes, name = "Mode") + 
-  theme(axis.text.x = element_text(angle = 0), legend.position = "bottom") + 
-  xlab("Scenario") + ylab("Modal share") + 
-  geom_text(position = position_stack(vjust = 0.5))
 
 
 
