@@ -7,7 +7,7 @@ population_munich_100_percent = 4424800
 purpose_order = c("HBW", "HBE", "HBS", "HBR", "HBO", "NHBW", "NHBO")
 
 sd_model_path = "c:/models/mito/germany/"
-sd_trips = read_csv(paste(sd_model_path, "scenOutput/sd_1_percent_20210614/2011/microData/trips.csv", sep = ""))
+sd_trips = read_csv(paste(sd_model_path, "scenOutput/sd_1_percent_20210624/2011/microData/trips.csv", sep = ""))
 all_sd_germany = sd_trips %>%
   group_by(purpose) %>%
   summarise(rate = n()/population_germany_1_percent, distance = mean(distance)) %>% 
@@ -52,7 +52,7 @@ all_sd_munich %>% bind_rows(all_sd_germany) %>%
 
 
 ld_model_path = "d:/simulations/ld/"
-ld_trips = read_csv(paste(ld_model_path, "5percent_weekday_calibrated_20210525/trips.csv", sep  = ""))
+ld_trips = read_csv(paste(ld_model_path, "0/0_trips.csv", sep  = ""))
 ld_trips_germany = ld_trips %>%
   group_by(tripPurpose, tripState) %>%
   summarise(rate = n()/population_germany_1_percent / 5)

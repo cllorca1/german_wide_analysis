@@ -1,6 +1,6 @@
 pacman::p_load(readr, dplyr, tidyr, ggplot2)
 
-save_plots = F
+save_plots = T
 
 
 counts_folder = "C:/Users/carlloga/LRZ Sync+Share/bast_EntlastungBundesfernstraßen (Rolf Moeckel)/detectors/counts_bast_2011/"
@@ -44,7 +44,7 @@ names(counts_observed_long)
 
 model_folder = "F:/matsim_germany/"
 
-scenarios = c("run_210605")
+scenarios = c("run_210625")
 veh_types = c("car_sd", "car_ld","truck")
 
 #scenarios = c("combined_hermes_20210506","ld_trucks")
@@ -75,6 +75,10 @@ simulated_counts = simulated_counts %>%
 
 length(unique(simulated_counts$link))
 
+###### quick fix to error in scale factor (only for 24.06.2021)
+
+#simulated_counts$vehicles[simulated_counts$veh_type == "car_sd"] = simulated_counts$vehicles * 5
+
 
 
 ##stations and links 
@@ -88,7 +92,7 @@ length(unique(station_links_2011$linkId))
 simulated_counts = simulated_counts %>% left_join(station_links_2011, by = c("link" = "linkId"))
 
 
-vehicle_colors = c("car" = "#5d86ec","car_ld" = "#415da5", "car_sd" = "#7d9eef" ,"truck" = "#a0bd7f")
+vehicle_colors = c("car" = "#656565","car_ld" = "#464646", "car_sd" = "#939393" ,"truck" = "#004049")
 
 scale = 100
 
@@ -112,19 +116,19 @@ both %>% pivot_wider(values_from = count, names_from = source) %>%
   ggplot(aes(x = obs, y = sim, color = is_truck)) + geom_point() + 
   geom_abline(intercept = 0, slope = 1, color = "black", size = 1) + 
   theme_bw() +
-  scale_color_manual(values = vehicle_colors) + 
+  scale_color_manual(values = vehicle_colors, name = "Vehicle type") + 
   scale_x_log10() + scale_y_log10() + 
-  xlab("Observed traffic (veh/day/direction) - log10") +
-  ylab("Simulated traffic (veh/day/direction) - log10")
+  xlab("Observed traffic (veh/day) - log10") +
+  ylab("Simulated traffic (veh/day) - log10")
 
 
 both %>% pivot_wider(values_from = count, names_from = source) %>% 
   ggplot(aes(x = obs, y = sim, color = is_truck)) + geom_point() + 
   geom_abline(intercept = 0, slope = 1, color = "black", size = 1) + 
   theme_bw() +
-  scale_color_manual(values = vehicle_colors) + 
-  xlab("Observed traffic (veh/day/direction)") +
-  ylab("Simulated traffic (veh/day/direction)")
+  scale_color_manual(values = vehicle_colors, name = "Vehicle type") + 
+  xlab("Observed traffic (veh/day)") +
+  ylab("Simulated traffic (veh/day)")
 
 file_name = paste("tmp/", 
                   gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
@@ -147,7 +151,7 @@ total_obs_car = sum(both_wide$obs_car)
 total_sim_truck = sum(both_wide$sim_truck)
 total_obs_truck = sum(both_wide$obs_truck)
 
-apply_correction = T
+apply_correction = F
 
 
 if (apply_correction){
@@ -175,9 +179,8 @@ ggplot(both_wide, aes(x = obs_car, y = sim_car * re_scale_factor_car)) +
   geom_point(color = vehicle_colors["car"])  + 
   geom_abline(intercept = 0, slope = 1, color = "black", size = 1) + 
   theme_bw() +
-  scale_color_manual(values = vehicle_colors) + 
-  xlab("Observed traffic (veh/day/direction)") +
-  ylab("Simulated traffic (veh/day/direction)")
+  xlab("Observed traffic (veh/day)") +
+  ylab("Simulated traffic (veh/day)")
 
 if(save_plots){
   file_name = paste("tmp/", 
@@ -191,9 +194,8 @@ ggplot(both_wide, aes(x = obs_truck, y = sim_truck * re_scale_factor_truck)) +
   geom_point(color = vehicle_colors["truck"])  + 
   geom_abline(intercept = 0, slope = 1, color = "black", size = 1) + 
   theme_bw() +
-  scale_color_manual(values = vehicle_colors) + 
-  xlab("Observed traffic (veh/day/direction)") +
-  ylab("Simulated traffic (veh/day/direction)")
+  xlab("Observed traffic (veh/day)") +
+  ylab("Simulated traffic (veh/day)")
 
 if(save_plots){
 
@@ -257,11 +259,11 @@ both = both %>% group_by(hour, veh_type, source) %>% summarise(count = sum(count
 
 ggplot(both, aes(x = hour, y = count, fill = veh_type)) +
   geom_bar(stat = "summary", fun = "mean", position =  "stack") + 
-  scale_fill_manual(values = vehicle_colors) + 
+  scale_fill_manual(values = vehicle_colors, name = "Vehicle type and segment") + 
   theme_bw() + 
+  theme(legend.position = "bottom") + 
   xlab("Time of day (h)") + ylab("Sum of vehicles") + 
-  facet_wrap(.~source) + 
-  geom_vline(xintercept = 24, color = "red", size = 1, linetype = "dashed")
+  facet_wrap(.~source)
 
 if (save_plots){
   file_name = paste("tmp/", 
@@ -270,21 +272,6 @@ if (save_plots){
   ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
 }
 
-
-ggplot(both, aes(x = hour, y = count, fill = veh_type)) +
-  geom_bar(stat = "summary", fun = "mean", position =  "stack") + 
-  scale_fill_manual(values = vehicle_colors) + 
-  theme_bw() + 
-  xlab("Time of day (h)") + ylab("Sum of vehicles") + 
-  facet_grid(veh_type~source) + 
-  geom_vline(xintercept = 24, color = "red", size = 1, linetype = "dashed")
-
-if (save_plots){
-  file_name = paste("tmp/", 
-                    gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
-                    "_all_by_tod_veh.jpg", sep = "" )
-  ggsave(filename = file_name, device = "jpeg", width = 15, height = 10, units = "cm", scale = 2)
-}
 
 
 both_aggregated  = both %>% group_by(hour, source) %>% summarize(count = sum(count))
@@ -295,7 +282,9 @@ both_aggregated = both_aggregated %>% pivot_wider(names_from = source, values_fr
 both_aggregated = both_aggregated %>% mutate(difference = obs - sim)
 
 ggplot(both_aggregated, aes(x = hour, y = difference, fill = difference)) + geom_bar(stat = "identity") + theme_bw() + 
-  scale_fill_gradient2() + ylab("observed - simulated flow (sum all stations)")
+  scale_fill_gradient2(name = "Difference") +
+  ylab("observed - simulated flow (sum all stations)") + 
+  theme(legend.position = "bottom")
 
 
 if (save_plots){
@@ -345,4 +334,86 @@ if (run){
   
   write_csv(missing_stations, "tmp/missing_stations.csv")
 }
+
+
+
+#### observed vs simulated hourly 
+
+sim = simulated_counts %>%
+  mutate(is_truck = if_else(veh_type == "truck", "truck", "car")) %>%
+  group_by(station = stationId, is_truck, veh_type, hour ) %>%
+  summarize(count = sum(vehicles) * scale) %>%
+  mutate(source = "sim")
+obs = counts_observed_long %>%
+  mutate(is_truck = if_else(veh_type == "truck", "truck", "car")) %>%
+  group_by(station, is_truck, veh_type,  hour) %>%
+  summarise(count = sum(vehicles)) %>%
+  mutate(source = "obs")
+both = sim %>% bind_rows(obs)
+# 
+# 
+# both %>% pivot_wider(values_from = count, names_from = source) %>% 
+#   ggplot(aes(x = obs, y = sim, color = is_truck)) + geom_point() + 
+#   geom_abline(intercept = 0, slope = 1, color = "black", size = 1) + 
+#   geom_abline(intercept = 0, slope = 0.75, color = "black", size = 1) + 
+#   geom_abline(intercept = 0, slope = 1.25, color = "black", size = 1) + 
+#   theme_bw() +
+#   scale_color_manual(values = vehicle_colors) + 
+#   xlab("Observed traffic (veh/h/direction)") +
+#   ylab("Simulated traffic (veh/h/direction)")
+
+
+
+#### test
+
+
+
+sim = simulated_counts %>%
+  mutate(is_truck = if_else(veh_type == "truck", "truck", "car")) %>%
+  group_by(station = stationId, type, is_truck, veh_type) %>%
+  summarize(count = sum(vehicles) * scale) %>%
+  mutate(source = "sim")
+
+types = sim %>% ungroup() %>% select(station, type) %>% unique()
+
+obs = counts_observed_long %>%
+  mutate(is_truck = if_else(veh_type == "truck", "truck", "car")) %>%
+  group_by(station, is_truck, veh_type) %>%
+  summarise(count = sum(vehicles)) %>%
+  mutate(source = "obs") %>% left_join(types)
+
+both = sim %>% bind_rows(obs)
+
+both = both %>%
+  group_by(station, veh_type, source) %>% 
+  mutate(total_station = sum(count))
+
+empty_stations = unique(both %>% group_by(station) %>% filter(total_station == 0) %>% select(station))
+
+both = both %>% filter(!(station %in% empty_stations$station))
+
+both = both %>% group_by(type, veh_type, source) %>% summarise(count = sum(count))
+# 
+# sim = simulated_counts %>%
+#   group_by(hour, veh_type) %>% 
+#   summarize(count = sum(vehicles) * scale) %>%
+#   mutate(source = "sim")
+# obs = counts_observed_long %>%
+#   group_by(hour, veh_type) %>%
+#   summarise(count = sum(vehicles)) %>%
+#   mutate(source = "obs")
+# both = sim %>% bind_rows(obs)
+
+
+ggplot(both, aes(x = source, y = count, fill = veh_type)) +
+  geom_bar(stat = "summary", fun = "mean", position =  "stack") + 
+  scale_fill_manual(values = vehicle_colors, name = "Vehicle type and segment") + 
+  theme_bw() + 
+  theme(legend.position = "bottom") + 
+  xlab("Time of day (h)") + ylab("Sum of vehicles") + 
+  facet_wrap(.~type, ncol = 7)
+
+
+
+
 
