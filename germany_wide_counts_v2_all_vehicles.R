@@ -62,7 +62,7 @@ names(counts_observed_long)
 
 model_folder = "F:/matsim_germany/"
 
-scenarios = c("run_210624")
+scenarios = c("run_210625")
 veh_types = c("car_sd", "car_ld","truck")
 
 #scenarios = c("combined_hermes_20210506","ld_trucks")

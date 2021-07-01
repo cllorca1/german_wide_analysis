@@ -82,7 +82,7 @@ analysis %>% filter(distance < 1000e3, distance > 0) %>%
   xlab("Average time (h)") + ylab("Frequency") + theme_bw() + 
   facet_wrap(.~group)
 
-ggsave(filename = "tmp/time_scenario_4jpg", device = "jpeg",
+ggsave(filename = "tmp/time_scenario_4.jpg", device = "jpeg",
        width = 15, height= 10, units = "cm", scale = 1.5)
 
 toll_cost = 0.02 / 1000

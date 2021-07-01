@@ -1,6 +1,5 @@
 pacman::p_load(ggplot2, dplyr, tidyr)
 
-
 scenario = c("base", "scen1", "scen2", "scen3")
 comparison = c("BAU", "ALT", "ALT", "ALT")
 auto = c(70,60,65,30)
