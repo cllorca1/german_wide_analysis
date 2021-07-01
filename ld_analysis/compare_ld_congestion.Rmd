@@ -1,0 +1,102 @@
+---
+title: "Long-distance model: 2011-2030"
+author: "Carlos Llorca"
+date: "7/1/2021"
+output: 
+  powerpoint_presentation:
+    reference_doc: reference.pptx
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+pacman::p_load(data.table, dplyr, ggplot2, tidyr, readr, plotly, sf, tmap, rgeos, RColorBrewer, here)
+
+out_folder= "Y:/projects/2019/BASt/data/input_files_LD/germanymodel/output/"
+ld_mode_order = c("auto", "auto_toll", "bus", "rail", "air")
+colors_ld_modes  =c("auto" = "#aaaaaa", "auto_toll" = "#2d2d2d", "rail"  ="#764c6e", 
+                    "bus" = "#bdc9bb", "air" = "#83adb5")
+
+scenarios = c("0", "0_congested")
+
+scenario_names = scenarios
+scenario_groups = substr(scenarios, 1,1)
+
+trips = data.frame()
+
+for (i in 1:length(scenarios)){
+  scenario_folder = scenarios[i]
+  this_trips = read_csv(paste(out_folder,scenario_folder, "/0_trips.csv", sep  =""))
+  this_trips$scenario_name = scenario_names[i]
+  this_trips$scenario_group = scenario_groups[i]
+  trips = trips %>% bind_rows(this_trips)
+  print(scenario_folder)
+}
+
+```
+
+
+## Destination choice
+
+```{r dc, out.width='100%', fig.width=14, fig.height=7, message= FALSE, warning=FALSE}
+
+trips_by_distance = trips %>%
+  filter(tripState != "away", tripDestType != "EXTOVERSEAS") %>%
+  mutate(dist_bin = cut(travelDistanceByCar_km, breaks = seq(0,2000,20))) %>%
+  group_by(tripPurpose, tripState, scenario_name, scenario_group) %>%
+  mutate(total = n()) %>% group_by(tripPurpose, tripState, scenario_name, dist_bin, total) %>%
+  summarise(n = n())
+
+trips_by_distance %>%
+  ggplot(aes(x = as.numeric(dist_bin)*20, y = n/total * 100, color = scenario_name)) +
+  geom_line(stat = "identity", size = 1) +
+  facet_grid(tripState~tripPurpose) +
+  xlab("Log(distance) (km)") + ylab("Frequency (%)") + 
+  scale_x_log10() + theme_bw() 
+
+```
+
+
+
+
+## Mode choice
+
+```{r mc1, out.width='100%', fig.width=14, fig.height=7,  message= FALSE, warning=FALSE}
+
+trip_count = trips %>%
+  filter(travelDistanceByCar_km < 10000 ) %>% 
+  filter(tripState != "away", tripDestType != "EXTOVERSEAS") %>%
+  group_by(tripMode, scenario_name, scenario_group) %>%
+  summarize(trips = n(), distance = sum(travelDistanceByCar_km))
+
+trip_count = trip_count %>% mutate(tripMode = factor(tripMode, levels = ld_mode_order))
+
+
+trip_count %>%
+  group_by(scenario_name) %>% mutate(total = sum(trips)) %>% 
+  ggplot(aes(x = scenario_name, y = trips/total, label = paste(sprintf("%.3f", trips/total * 100), "%", sep  =""), fill = tripMode)) +
+  geom_bar(position  = "fill", stat = "identity") +
+  scale_fill_manual(values = colors_ld_modes, name = "Mode") + 
+  theme(axis.text.x = element_text(angle = 0), legend.position = "bottom") + 
+  xlab("Scenario") + ylab("Modal share") + 
+  geom_text(position = position_stack(vjust = 0.5)) + 
+  theme_bw()
+
+```
+
+
+## Travel time by car
+
+```{r tt, out.width='100%', fig.width=14, fig.height=7,  message= FALSE, warning=FALSE}
+
+trips %>% 
+  sample_frac(0.2) %>% 
+  mutate(mode = if_else(tripMode == "auto", "chose auto", "chose other")) %>%
+  ggplot(aes(x = as.numeric(time_auto), color = scenario_name)) +
+  stat_ecdf() +
+  facet_grid(.~mode) +
+  scale_x_log10() + 
+  theme_bw()
+
+```
+
+

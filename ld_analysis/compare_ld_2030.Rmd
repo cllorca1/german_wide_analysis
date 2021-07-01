@@ -1,7 +1,15 @@
-pacman::p_load(data.table, dplyr, ggplot2, tidyr, readr, plotly, sf, tmap, rgeos, RColorBrewer)
+---
+title: "Long-distance model: 2011-2030"
+author: "Carlos Llorca"
+date: "7/1/2021"
+output: 
+  powerpoint_presentation:
+    reference_doc: reference.pptx
+---
 
-
-
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+pacman::p_load(data.table, dplyr, ggplot2, tidyr, readr, plotly, sf, tmap, rgeos, RColorBrewer, here)
 
 out_folder= "Y:/projects/2019/BASt/data/input_files_LD/germanymodel/output/"
 ld_mode_order = c("auto", "auto_toll", "bus", "rail", "air")
@@ -24,15 +32,13 @@ for (i in 1:length(scenarios)){
   print(scenario_folder)
 }
 
-# 
-# trips = trips %>% mutate(tripMode = if_else(scenario_group == "4", 
-#                                             recode(tripMode, "auto" = "auto_toll", "auto_noToll" = "auto"),
-#                                             tripMode))
-
-#summary(as.factor(trips$tripMode))
+```
 
 
-##Destination choice
+## Destination choice
+
+```{r dc, out.width='100%', fig.width=14, fig.height=7, message= FALSE, warning=FALSE}
+
 trips_by_distance = trips %>%
   filter(tripState != "away", tripDestType != "EXTOVERSEAS") %>%
   mutate(dist_bin = cut(travelDistanceByCar_km, breaks = seq(0,2000,20))) %>%
@@ -43,19 +49,43 @@ trips_by_distance = trips %>%
 trips_by_distance %>%
   ggplot(aes(x = as.numeric(dist_bin)*20, y = n/total * 100, color = scenario_name)) +
   geom_line(stat = "identity", size = 1) +
-  facet_grid(tripState~tripPurpose) + xlab("Log(distance) (km)") + ylab("Frequency (%)") + 
+  facet_grid(tripState~tripPurpose) +
+  xlab("Log(distance) (km)") + ylab("Frequency (%)") + 
   scale_x_log10() + theme_bw() 
-  
 
-##Mode choice
+```
+
+
+
+
+## Modal share by purpose
+
+```{r mc1, out.width='100%', fig.width=14, fig.height=7,  message= FALSE, warning=FALSE}
+
 trip_count = trips %>%
   filter(travelDistanceByCar_km < 10000 ) %>% 
   filter(tripState != "away", tripDestType != "EXTOVERSEAS") %>%
-  group_by(tripMode, scenario_name, scenario_group) %>%
+  group_by(tripMode, scenario_name, scenario_group, tripPurpose) %>%
   summarize(trips = n(), distance = sum(travelDistanceByCar_km))
 
 trip_count = trip_count %>% mutate(tripMode = factor(tripMode, levels = ld_mode_order))
 
+trip_count %>%
+  group_by(scenario_name, tripPurpose) %>% mutate(total = sum(trips)) %>% 
+  ggplot(aes(x = scenario_name, y = trips/total, label = sprintf("%.3f", trips/total), fill = tripMode)) +
+  geom_bar(position  = "fill", stat = "identity") +
+  scale_fill_manual(values = colors_ld_modes, name = "Mode") + 
+  theme(axis.text.x = element_text(angle = 0), legend.position = "bottom") + 
+  xlab("Scenario") + ylab("Modal share") + 
+  facet_grid(.~tripPurpose) + 
+  geom_text(position = position_stack(vjust = 0.5)) + 
+  theme_bw()
+
+```
+
+## Trips by mode  
+
+```{r mc3, out.width='100%', fig.width=14, fig.height=7,  message= FALSE, warning=FALSE}
 
 trip_count %>%
   group_by(scenario_name) %>% mutate(total = sum(trips)) %>% 
@@ -64,21 +94,17 @@ trip_count %>%
   scale_fill_manual(values = colors_ld_modes, name = "Mode") + 
   theme(axis.text.x = element_text(angle = 0), legend.position = "bottom") + 
   xlab("Scenario") + ylab("Trips") + 
-  geom_text(position = position_stack(vjust = 0.5))
+  facet_grid(.~tripPurpose) +
+  geom_text(position = position_stack(vjust = 0.5)) + 
+  theme_bw()
 
-trip_count %>%
-  group_by(scenario_name) %>% mutate(total = sum(trips)) %>% 
-  ggplot(aes(x = scenario_name, y = trips/total, label = sprintf("%.3f", trips/total), fill = tripMode)) +
-  geom_bar(position  = "stack", stat = "identity") +
-  scale_fill_manual(values = colors_ld_modes, name = "Mode") + 
-  theme(axis.text.x = element_text(angle = 0), legend.position = "bottom") + 
-  xlab("Scenario") + ylab("Modal share") + 
-  geom_text(position = position_stack(vjust = 0.5))
+```
 
+## Trips by area type
 
+```{r mc2, out.width='100%', fig.width=14, fig.height=7,  message= FALSE, warning=FALSE}
 
-##By area type
-zonal_data = read_csv("scenarios/zoneSystemDE_2col.csv")
+zonal_data = read_csv(paste(here(), "/scenarios/zoneSystemDE_2col.csv", sep = ""))
 zonal_data$BBSR_type = recode(as.character(zonal_data$BBSR_type), 
                               "10" = "10: core",
                               "20" = "20: medium_city",
@@ -89,10 +115,6 @@ zonal_data$BBSR_type = recode(as.character(zonal_data$BBSR_type),
 trips = trips %>% left_join(zonal_data, by = c("tripOriginZone" = "Zone")) %>%
   mutate(type_o = BBSR_type) %>% select(-BBSR_type)
 
-trips = trips %>% left_join(zonal_data, by = c("tripDestZone" = "Zone")) %>%
-  mutate(type_d = BBSR_type) %>% select(-BBSR_type)
-
-
 trip_count = trips %>%
   filter(travelDistanceByCar_km < 10000 ) %>% 
   filter(tripState != "away", tripDestType != "EXTOVERSEAS") %>%
@@ -102,20 +124,15 @@ trip_count = trips %>%
 trip_count = trip_count %>% mutate(tripMode = factor(tripMode, levels = ld_mode_order))
 
 trip_count %>%
-  ggplot(aes(x = scenario_name, y = trips, fill = tripMode)) +
-  geom_bar(position  = "fill", stat = "identity") +
-  scale_fill_manual(values = colors_ld_modes, name = "Mode") + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1), legend.position = "bottom") + 
-  xlab("Scenario") + ylab("Modal share")  + 
-  facet_grid(. ~ type_o)
-
-
-trip_count %>%
   ggplot(aes(x = scenario_name, y = trips*20, fill = tripMode)) +
   geom_bar(position  = "stack", stat = "identity") +
   scale_fill_manual(values = colors_ld_modes, name = "Mode") + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1), legend.position = "bottom") + 
   xlab("Scenario") + ylab("Modal share")  + 
-  facet_grid(. ~ type_o)
+  facet_grid(. ~ type_o) + 
+  theme_bw()
+
+
+```
 
 
