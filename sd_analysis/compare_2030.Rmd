@@ -1,0 +1,83 @@
+---
+title: "Short-distance model: 2011-2030"
+author: "Carlos Llorca"
+date: "7/1/2021"
+output: 
+  powerpoint_presentation:
+    reference_doc: reference.pptx
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+pacman::p_load(dplyr, readr, ggplot2, tidyr)
+
+folder = "c:/models/mito/germany/scenOutput/"
+file_name = "/2011/microData/trips.csv"
+
+trips = data.frame()
+
+
+
+path = paste(folder, "sd_1_percent_20210624", file_name, sep = "")
+this_trips = read_csv(path) %>% mutate(year = 2011) %>% mutate(scale = 0.01)
+trips = trips %>% bind_rows(this_trips)
+
+
+path = paste(folder, "sd_5_percent_2030_20210701", file_name, sep = "")
+##need to take a 20% to make uniform scales (1%)
+this_trips = read_csv(path) %>% mutate(year = 2030) %>% mutate(scale = 0.05) %>% sample_frac(0.2)
+trips = trips %>% bind_rows(this_trips)
+
+
+```
+
+
+## Destination choice
+
+```{r dc, out.width='100%', fig.width=14, fig.height=7, message= FALSE, warning=FALSE}
+
+trips %>%
+  sample_frac(0.01) %>% 
+  ggplot(aes(x = distance, color = as.factor(year), group = year)) + geom_density(alpha = 0.2) +
+  theme_bw() +
+  facet_wrap(.~purpose, ncol = 4) +
+  scale_x_log10() +
+  xlab("Distance") +
+  ylab("Frequency")
+
+```
+
+
+## Modal share by purpose 
+
+```{r mc1, out.width='100%', fig.width=14, fig.height=7,  message= FALSE, warning=FALSE}
+
+mode_colors = c("autoDriver" = "#878787",
+                "autoPassenger" = "#a9a9a9",
+                "train" = "#789ec9",
+                "tramOrMetro" = "#5c768d",
+                "bus" = "#50546d",
+                "bicycle" = "#87c77d",
+                "walk" = "#53815b")
+
+mode_order = c("autoDriver","autoPassenger","train" ,"tramOrMetro" ,"bus","bicycle" ,"walk")
+
+trips$mode = factor(trips$mode, levels = mode_order)
+
+trips %>% ggplot(aes(x = as.factor(year), fill = mode)) + geom_bar(stat = "count", position = "fill") +
+  theme_bw() + facet_grid(.~purpose) + scale_fill_manual(values = mode_colors) + 
+  xlab("Year") + ylab("Modal share")
+
+```
+
+## Trips by mode and purpose 
+
+```{r mc2, out.width='100%', fig.width=14, fig.height=7,  message= FALSE, warning=FALSE}
+
+trips %>% ggplot(aes(x = as.factor(year), fill = mode)) + geom_bar(stat = "count", position = "stack") +
+  theme_bw() + facet_grid(.~purpose) + scale_fill_manual(values = mode_colors) + 
+  xlab("Year") + ylab("Trips (1%)")
+
+```
+
+
