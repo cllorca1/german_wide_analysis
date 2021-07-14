@@ -9,6 +9,15 @@ scenario,scenario_group,var1,val1,var2,val2,var3,val3
 1_C_2,1,EUR,1,EUR/km,0.12,greater than,0
 1_C_3,1,EUR,2.8,EUR/km,1.6,greater than,0
 1_C_4,1,EUR,4.5,EUR/km,2.6,greater than,4
+1_A_0_N,1,EUR,0,EUR/km,0,greater than,0
+1_A_1_N,1,EUR,1,EUR/km,0,greater than,0
+1_A_2_N,1,EUR,3.3,EUR/km,0,greater than,0
+1_B_1_N,1,EUR,0,EUR/km,0.12,greater than,0
+1_B_2_N,1,EUR,0,EUR/km,1.5,greater than,0
+1_C_1_N,1,EUR,0.02,EUR/km,0.02,greater than,0
+1_C_2_N,1,EUR,1,EUR/km,0.12,greater than,0
+1_C_3_N,1,EUR,2.8,EUR/km,1.6,greater than,0
+1_C_4_N,1,EUR,4.5,EUR/km,2.6,greater than,4
 2_A_1,2,Speed,Base,Cost,0.89916, , 
 2_A_2,2,Speed,Improved,Cost,1, , 
 2_A_3,2,Speed,Improved,Cost,0.89916, ,
@@ -18,9 +27,12 @@ scenario,scenario_group,var1,val1,var2,val2,var3,val3
 3_B_2,3,In-Vehicle,-30%,Transfer,-10 min / transfer,,
 3_C_1,3,In-Vehicle,-50%,Transfer,-5 min / transfer,,
 3_C_2,3,In-Vehicle,-50%,Transfer,-10 min / transfer,,
-4_A_0_0.25,4,Toll,Freeway,Cost,0 cent,,
-4_A_1,4,Toll,Freeway,Cost,1.5 cent,,
-4_A_2,4,Toll,Freeway,Cost,5 cent,,
+4_A_0,4,Toll,A,Cost,0 cent,,
+4_A_1,4,Toll,A,Cost,1.5 cent,,
+4_A_2,4,Toll,A,Cost,5 cent,,
 7_A_1,7,EUR/km,0.2,,,,
 7_A_2,7,EUR/km,0.5,,,,
 7_A_3,7,EUR/km,1,,,,
+4_B_0,4,Toll,A + B,Cost,0 cent,,
+4_B_1,4,Toll,A + B,Cost,1.5 cent,,
+4_B_2,4,Toll,A + B,Cost,5 cent,,

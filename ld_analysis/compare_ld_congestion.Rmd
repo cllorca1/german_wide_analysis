@@ -11,12 +11,12 @@ output:
 knitr::opts_chunk$set(echo = FALSE)
 pacman::p_load(data.table, dplyr, ggplot2, tidyr, readr, plotly, sf, tmap, rgeos, RColorBrewer, here)
 
-out_folder= "Y:/projects/2019/BASt/data/input_files_LD/germanymodel/output/"
+out_folder= "Z:/projects/2019/BASt/data/input_files_LD/germanymodel/output/"
 ld_mode_order = c("auto", "auto_toll", "bus", "rail", "air")
 colors_ld_modes  =c("auto" = "#aaaaaa", "auto_toll" = "#2d2d2d", "rail"  ="#764c6e", 
                     "bus" = "#bdc9bb", "air" = "#83adb5")
 
-scenarios = c("0", "0_congested")
+scenarios = c("0", "0_congested", "0_congested_2", "0_congested_3")
 
 scenario_names = scenarios
 scenario_groups = substr(scenarios, 1,1)

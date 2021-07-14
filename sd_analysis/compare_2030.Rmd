@@ -1,8 +1,8 @@
 ---
-title: "Short-distance model: 2011-2030"
+title: 'Short-distance model: 2011-2030'
 author: "Carlos Llorca"
-date: "7/1/2021"
-output: 
+date: "01.07.2021"
+output:
   powerpoint_presentation:
     reference_doc: reference.pptx
 ---
@@ -42,7 +42,7 @@ trips %>%
   theme_bw() +
   facet_wrap(.~purpose, ncol = 4) +
   scale_x_log10() +
-  xlab("Distance") +
+  xlab("Distance (km)") +
   ylab("Frequency")
 
 ```

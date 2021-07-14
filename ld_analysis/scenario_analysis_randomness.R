@@ -128,4 +128,4 @@ group_by(tripMode, scenario_name) %>%
   summarize(n = n())
 
 write.table(summary, "clipboard", row.names = T, sep = "\t")
-•
+

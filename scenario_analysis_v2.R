@@ -1,22 +1,22 @@
 pacman::p_load(data.table, dplyr, ggplot2, tidyr, readr, plotly, sf, tmap, rgeos, RColorBrewer)
 
-out_folder= "Y:/projects/2019/BASt/data/input_files_LD/germanymodel/output/"
+out_folder= "Z:/projects/2019/BASt/data/input_files_LD/germanymodel/output/carlos_with_free_flow_before_20210707/"
 ld_mode_order = c("auto", "auto_toll", "bus", "rail", "air")
-colors_ld_modes  =c("auto" = "#aaaaaa", "auto_toll" = "#2d2d2d", "rail"  ="#764c6e", 
+colors_ld_modes  =c("auto" = "#aaaaaa", "auto_toll" = "#676767", "rail"  ="#764c6e", 
                     "bus" = "#bdc9bb", "air" = "#83adb5")
 
-save_plots = F
+save_plots = T
 
 scenarios = c("0", 
-              "1_A_0",
-              "1_A_1",
-              "1_A_2",
-              "1_B_1",
-              "1_B_2",
+              "1_A_0_N",
+              "1_A_1_N",
+              "1_A_2_N",
+              "1_B_1_N",
+              "1_B_2_N",
               #"1_C_1",
-              "1_C_2",
-              "1_C_3",
-              "1_C_4",
+              "1_C_2_N",
+              "1_C_3_N",
+              "1_C_4_N",
               "2_A_1",
               "2_A_2",
               "2_A_3",
@@ -24,9 +24,12 @@ scenarios = c("0",
               "3_A_2",
               "3_B_1",
               "3_C_1",
-              "4_A_0_0.25",
+              "4_A_0",
               "4_A_1",
               "4_A_2", 
+              "4_B_0",
+              "4_B_1",
+              "4_B_2", 
               "7_A_1",
               "7_A_2",
               "7_A_3")
@@ -65,6 +68,12 @@ for (i in 1:length(scenarios)){
 trips = trips %>% mutate(tripMode = if_else(scenario_group == "4", 
                                             recode(tripMode, "auto" = "auto_toll", "auto_noToll" = "auto"),
                                             tripMode))
+
+
+trips = trips %>% mutate(tripMode = if_else(tripMode == "rail_shuttle", "rail",
+                                            tripMode))
+
+
 
 trip_sumamry = trips %>%
   filter(travelDistanceByCar_km < 10000 ) %>% 
