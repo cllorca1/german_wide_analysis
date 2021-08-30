@@ -40,33 +40,20 @@ length(unique(counts_observed_long$station))
 #write_csv(counts_observed_long, paste(counts_folder, "weekday_counts_by_station_hour_long.csv", sep  =""))
 names(counts_observed_long)
 
-model_folder = "F:/matsim_germany/"
+model_folder = "Z:/projects/2019/BASt/data/results/matsim/"
 
-scenarios = c("base_210712")
+scenario = "base_2011"
 veh_types = c("car_sd", "car_ld","truck")
 
 #scenarios = c("combined_hermes_20210506","ld_trucks")
 #veh_types = c("car","truck")
 
-simulated_counts = data.frame()
-for (i in 1:length(scenarios)){
-  scenario = scenarios[i]
-  this_simulated_counts = read_csv(paste(model_folder, "output/", scenario, "/counts.csv", sep  =""))
-  simulated_counts = simulated_counts %>%
-    bind_rows(this_simulated_counts %>%
-                mutate(veh_type = "car_sd", vehicles = car_sd) %>%
-                select(link, hour, length, type, vehicles, veh_type))
-  simulated_counts = simulated_counts %>%
-    bind_rows(this_simulated_counts %>%
-                mutate(veh_type = "car_ld", vehicles = car_ld) %>%
-                select(link, hour, length, type, vehicles, veh_type))
-  simulated_counts = simulated_counts %>%
-    bind_rows(this_simulated_counts %>%
-                mutate(veh_type = "truck", vehicles = truck) %>%
-                select(link, hour, length, type, vehicles, veh_type))
-  rm(this_simulated_counts)
-}
 
+simulated_counts = read_csv(paste(model_folder, scenario, "/counts.csv", sep  =""))
+simulated_counts = simulated_counts %>% filter(driver_type == "accept_toll")
+simulated_counts = simulated_counts %>% select(link, hour, type, veh_type = vehicle_type, vehicles = count)
+simulated_counts = simulated_counts %>%  mutate(is_truck = if_else(veh_type == "truck", 1, 0))
+  
 #add every count into one day (hours will be repeated!)
 simulated_counts = simulated_counts %>%
   mutate(hour = if_else(hour >= 48, hour - 48, if_else(hour >= 24, hour - 24, hour)))

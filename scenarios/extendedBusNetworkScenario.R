@@ -13,23 +13,27 @@ zonal_data$BBSR_type = recode(as.character(zonal_data$BBSR_type),
                               "30" = "30:town",
                               "40" = "40: rural")
 
+types_bbsr_german = c("Kern- und Großst.","Mittelstädte",  "Kleinstädte", "Ländliche Gem.")
+
+
 speed_analysis = speed_analysis %>% left_join(zonal_data, by = (c("o"="Zone")))
 speed_analysis = speed_analysis %>% left_join(zonal_data, by = (c("d"="Zone")),suffix = c("", "_d"))
 
 
-mode_colors = colors_ld_modes  =c("auto" = "#aaaaaa", "auto_toll" = "#2d2d2d", "rail"  ="#764c6e", 
-                                  "bus" = "#bdc9bb", "air" = "#83adb5")
-linetype_ld_modes  =c("auto" = "solid", "auto_toll" = "solid", "rail"  ="11",
-                      "bus" = "11", "air" = "11")
+mode_colors = colors_ld_modes  =c("Auto" = "#aaaaaa", "auto_toll" = "#2d2d2d", "Bahn"  ="#764c6e", 
+                                  "Bus" = "#bdc9bb", "air" = "#83adb5")
+linetype_ld_modes  =c("Auto" = "solid", "auto_toll" = "solid", "Bahn"  ="11",
+                      "Bus" = "11", "air" = "11")
 
 speed_analysis %>%
   filter(speed > 0.1, speed < 40, dist > 50000, !is.na(share_time)) %>%
+  mutate(mode = factor(mode, levels = c("auto", "bus", "rail"), labels = c("Auto", "Bus", "Bahn"))) %>% 
   ggplot(aes(x = speed*3.6,..density.., color = mode, linetype = mode)) +
   geom_freqpoly(size=2) +
   theme_bw() + 
-  scale_color_manual(values = mode_colors, name = "Mode") +
-  scale_linetype_manual(values = linetype_ld_modes, name = "Mode") +
-  xlab("Average speed (door to door) (km/h)") + ylab("Frequency")
+  scale_color_manual(values = mode_colors, name = "Verkehrsmittel") +
+  scale_linetype_manual(values = linetype_ld_modes, name = "Verkehrsmittel") +
+  xlab("Durchschnittsgeschwindigkeit (km/h)") + ylab("Häufigkeit")
 
 ggsave(filename = "tmp/speed_before_scenario_2.jpg", device = "jpeg",
         width = 15, height= 10, units = "cm", scale = 1.5)
@@ -50,19 +54,19 @@ ggsave(filename = "tmp/speed_before_scenario_2.jpg", device = "jpeg",
 max_transfers = Inf
 min_share = 0.75
 
-label_yes = paste(" > 75% on LD bus")
-label_no = paste("< 75% on LD bus")
+label_yes = paste(" > 75% Fernbussen")
+label_no = paste("< 75% Fernbussen")
 
 
 
 speed_analysis %>%
   mutate(is_coach = if_else(mode == "bus", if_else(share_time > min_share & transfers < max_transfers, label_yes, label_no), label_yes)) %>%
   filter(speed > 0.1, speed < 40, dist > 50000, !is.na(share_time), mode == "bus") %>%
+  mutate(mode = factor(mode, levels = c("auto", "bus", "rail"), labels = c("Auto", "Bus", "Bahn"))) %>% 
   ggplot(aes(x = speed*3.6, color = mode,..density.., linetype = is_coach)) +
-  geom_freqpoly(size = 2) + theme_bw() + 
-  scale_color_manual(values = mode_colors, name = "Mode") +
+  geom_freqpoly(size = 2, color = colors_ld_modes[["Bus"]]) + theme_bw() + 
   scale_linetype_manual(values= c("solid", "12"), name = "") +
-  xlab("Average speed (door to door) (km/h)") + ylab("Frequency")
+  xlab("Durchschnittsgeschwindigkeit (km/h)") + ylab("Häufigkeit")
 
 ggsave(filename = "tmp/speed_with_without_scenario_2.jpg", device = "jpeg",
        width = 15, height= 10, units = "cm", scale = 1.5)
@@ -76,11 +80,21 @@ speed_analysis %>%
   group_by(BBSR_type, BBSR_type_d, is_coach, mode) %>%
   summarize(time = mean(time), speed = mean(speed)) %>% 
   filter(mode == "bus") %>%
+  mutate(BBSR_type = recode(BBSR_type, "10: core" = types_bbsr_german[1],
+                            "20: medium_city" = types_bbsr_german[2], 
+                            "30:town" = types_bbsr_german[3], 
+                            "40: rural" = types_bbsr_german[4])) %>% 
+  mutate(BBSR_type = factor(BBSR_type, levels = types_bbsr_german)) %>% 
+  mutate(BBSR_type_d = recode(BBSR_type_d, "10: core" = types_bbsr_german[1],
+                              "20: medium_city" = types_bbsr_german[2], 
+                              "30:town" = types_bbsr_german[3],  
+                              "40: rural" = types_bbsr_german[4])) %>%
+  mutate(BBSR_type_d = factor(BBSR_type_d, levels = types_bbsr_german)) %>% 
   ggplot(aes(x = is_coach, y = speed*3.6, fill = is_coach)) +
   geom_bar(stat = "identity") +
   theme_bw() + 
   scale_fill_manual(values = mode_bus_colors, name = "") + 
-  ylab("Average speed (door to door) (km/h)") + 
+  ylab("Durchschnittsgeschwindigkeit (km/h)") + xlab("") + 
   facet_grid(BBSR_type ~ BBSR_type_d) + 
   theme(axis.text.x = element_text(angle = 90))
 
@@ -100,11 +114,10 @@ speed_analysis %>%
   mutate(speed = if_else(is_coach == label_no, speed * 10.5/7.6, speed)) %>%
   filter(speed > 0.1, speed < 40, dist > 50000, !is.na(share_time), mode == "bus") %>%
   ggplot(aes(x = speed*3.6, color = mode,..density.., linetype = is_coach)) +
-  geom_freqpoly(size = 2) +
+  geom_freqpoly(size = 2, color = colors_ld_modes[["Bus"]]) +
   theme_bw() + 
-  scale_color_manual(values = mode_colors, name = "Mode") +
   scale_linetype_manual(values= c("solid", "12"), name = "") +
-  xlab("Average speed (door to door) (km/h)") + ylab("Frequency")
+  xlab("Durchschnittsgeschwindigkeit (km/h)") + ylab("Häufigkeit")
 
 ggsave(filename = "tmp/speed_after_scenario_2.jpg", device = "jpeg",
        width = 15, height= 10, units = "cm", scale = 1.5)
@@ -138,24 +151,35 @@ new_speeds = speed_analysis %>%
   group_by(BBSR_type, BBSR_type_d, mode) %>%
   summarize(time = mean(time), speed = mean(speed)) %>% 
   filter(mode == "bus") %>%
-  mutate(when = "2:after")
+  mutate(when = "nach Szenario 2")
 
 old_speeds = speed_analysis %>%
   filter(speed > 0.1, speed < 40, !is.na(share_time)) %>%
   group_by(BBSR_type, BBSR_type_d, mode) %>%
   summarize(time = mean(time), speed = mean(speed)) %>% 
   filter(mode == "bus") %>% 
-  mutate(when = "1:before")
+  mutate(when = "vor Szenario 2")
 
 mode_bus_colors_2 = c("#bdc9bb", "#e4e9e3")
 
 new_speeds %>%
-  bind_rows(old_speeds) %>% 
+  bind_rows(old_speeds) %>%
+  mutate(when = factor(when, levels = c("vor Szenario 2", "nach Szenario 2"))) %>% 
+  mutate(BBSR_type = recode(BBSR_type, "10: core" = types_bbsr_german[1],
+                            "20: medium_city" = types_bbsr_german[2], 
+                            "30:town" = types_bbsr_german[3], 
+                            "40: rural" = types_bbsr_german[4])) %>% 
+  mutate(BBSR_type = factor(BBSR_type, levels = types_bbsr_german)) %>% 
+  mutate(BBSR_type_d = recode(BBSR_type_d, "10: core" = types_bbsr_german[1],
+                              "20: medium_city" = types_bbsr_german[2], 
+                              "30:town" = types_bbsr_german[3],  
+                              "40: rural" = types_bbsr_german[4])) %>%
+  mutate(BBSR_type_d = factor(BBSR_type_d, levels = types_bbsr_german)) %>% 
   ggplot(aes(x = when, y = speed * 3.6, fill = when)) +
   geom_bar(stat = "identity", color = "#bdc9bb") +
   theme_bw() +
   scale_fill_manual(values = mode_bus_colors_2, name = "") + 
-  ylab("Average speed (door to door) (km/h)") +
+  ylab("Durchschnittsgeschwindigkeit (km/h)") + xlab("") + 
   facet_grid(BBSR_type ~ BBSR_type_d) + 
   theme(axis.text.x = element_text(angle = 90))
 
@@ -163,18 +187,28 @@ ggsave(filename = "tmp/speed_finals_scenario_2.jpeg", device = "jpeg",
        width = 15, height= 10, units = "cm", scale = 1.5)
 
 
-new_speeds %>%
-  bind_rows(old_speeds) %>% 
-  ggplot(aes(x = when, y = time /3600, fill = when)) +
-  geom_bar(stat = "identity", color = "#bdc9bb") +
-  theme_bw() +
-  scale_fill_manual(values = mode_bus_colors_2) + 
-  ylab("Average time (door to door) (h)") +
-  facet_grid(BBSR_type ~ BBSR_type_d) + 
-  theme(axis.text.x = element_text(angle = 90))
-
-ggsave(filename = "tmp/times_finals_scenario_2.jpeg", device = "jpeg",
-       width = 15, height= 10, units = "cm", scale = 1.5)
+# new_speeds %>%
+#   bind_rows(old_speeds) %>%
+#   mutate(BBSR_type = recode(BBSR_type, "10: core" = types_bbsr_german[1],
+#                             "20: medium_city" = types_bbsr_german[2], 
+#                             "30:town" = types_bbsr_german[3], 
+#                             "40: rural" = types_bbsr_german[4])) %>% 
+#   mutate(BBSR_type = factor(BBSR_type, levels = types_bbsr_german)) %>% 
+#   mutate(BBSR_type_d = recode(BBSR_type_d, "10: core" = types_bbsr_german[1],
+#                               "20: medium_city" = types_bbsr_german[2], 
+#                               "30:town" = types_bbsr_german[3],  
+#                               "40: rural" = types_bbsr_german[4])) %>%
+#   mutate(BBSR_type = factor(BBSR_type, levels = types_bbsr_german)) %>% 
+#   ggplot(aes(x = when, y = time /3600, fill = when)) +
+#   geom_bar(stat = "identity", color = "#bdc9bb") +
+#   theme_bw() +
+#   scale_fill_manual(values = mode_bus_colors_2) + 
+#   ylab("Average time (door to door) (h)") +
+#   facet_grid(BBSR_type ~ BBSR_type_d) + 
+#   theme(axis.text.x = element_text(angle = 90))
+# 
+# ggsave(filename = "tmp/times_finals_scenario_2.jpeg", device = "jpeg",
+#        width = 15, height= 10, units = "cm", scale = 1.5)
 
 
 # reduction_at_transfers = 60 * 15

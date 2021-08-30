@@ -36,19 +36,20 @@ for (alternative in alternatives){
 
 
 order = c("base", "low", "low_b" , "intermediate" , "extreme" )
+labels = c("Basis", "3_A_1", "3_A_2" , "3_B_1" , "3_C_1" )
 
-data_analysis_long$alternative = factor(data_analysis_long$alternative, levels = order)
-colors = c("base" ="#cec4cc",
-           "low" = "#9e8a9a",
-           "low_b" = "#6e4f68",
-           "intermediate" = "#54364f", 
-           "extreme" = "#382434")
+data_analysis_long$alternative = factor(data_analysis_long$alternative, levels = order, labels = labels)
+colors = c("Basis" ="#cec4cc",
+           "3_A_1" = "#9e8a9a",
+           "3_A_2" = "#6e4f68",
+           "3_B_1" = "#54364f", 
+           "3_C_1" = "#382434")
 
 data_analysis_long %>% filter(name == "time_before_s" | name == "time_after_s") %>%
   ggplot(aes(x=value/3600, color = alternative, fill = alternative)) + geom_density(alpha = 0.1, size = 2) + theme_bw() + 
-  xlab("Total travel time (h)") + ylab("Frequency") + 
-  scale_color_manual(values = colors, name = "Alternative") + 
-  scale_fill_manual(values = colors, name = "Alternative")
+  xlab("Reisezeit (h)") + ylab("Häufigkeit") + 
+  scale_color_manual(values = colors, name = "Szenario") + 
+  scale_fill_manual(values = colors, name = "Szenario")
 
 ggsave(filename = "tmp/travel_time_scen_3_distribution.jpg", device = "jpeg",
        width = 15, height= 10, units = "cm", scale = 1.5)
@@ -57,8 +58,8 @@ data_analysis_long %>% filter(name == "time_before_s" | name == "time_after_s") 
   ggplot(aes(x = alternative, y = value/3600, fill = alternative)) +
   geom_bar(stat = "summary", fun = "mean") +
   theme_bw() + 
-  xlab("Alternative") + ylab("Average travel time (h)") + 
-  scale_fill_manual(values = colors, name = "Alternative")
+  xlab("Szenario") + ylab("Reisezeit (Durchschnitt) (h)") + 
+  scale_fill_manual(values = colors, name = "Szenario")
 
 ggsave(filename = "tmp/travel_time_scen_3_average.jpg", device = "jpeg",
        width = 15, height= 10, units = "cm", scale = 1.5)

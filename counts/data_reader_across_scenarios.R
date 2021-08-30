@@ -1,14 +1,15 @@
 pacman::p_load(readr, dplyr, tidyr, ggplot2)
 
 
-model_folder = "F:/matsim_germany/"
 
-scenarios = c("base_210711", "2_a_1_toll_210709")
+model_folder = "Z:/projects/2019/BASt/data/results/matsim/"
+
+scenarios = c("base_2030","4_A_1_2011_freeflow_calibrated", "4_B_1_2011_freeflow_calibrated")
 
 simulated_counts = data.frame()
 for (i in 1:length(scenarios)){
   scenario = scenarios[i]
-  this_simulated_counts = read_csv(paste(model_folder, "output/", scenario, "/counts_toll.csv", sep  =""))
+  this_simulated_counts = read_csv(paste(model_folder, scenario, "/counts.csv", sep  =""))
   simulated_counts = simulated_counts %>%
     bind_rows(this_simulated_counts %>%
                 mutate(scenario = scenario))

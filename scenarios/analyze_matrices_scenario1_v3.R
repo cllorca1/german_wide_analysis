@@ -60,7 +60,7 @@ access_2 = matrixdata %>%
 write_csv(access_2, "tmp/access_s.csv")
 
 
-names = c("by walk", "by car")
+names = c("zu Fuß", "mit dem Auto")
 
 
 matrixdata %>% filter(alt != "1") %>% 
@@ -68,8 +68,8 @@ matrixdata %>% filter(alt != "1") %>%
   mutate(alt = factor(alt, levels = names)) %>%
   ggplot(aes(x = travel_time_s/3600, color = alt)) + 
   geom_density(size = 2) + 
-  scale_color_manual(values = c("by walk" = "#764c6e", "by car" = "#c8b7c5"), name = "Access mode") + 
-  ylab("Frequency") + xlab("Travel time (h)") + xlim(0,20) + 
+  scale_color_manual(values = c("zu Fuß" = "#764c6e", "mit dem Auto" = "#c8b7c5"), name = "Zubringerverkehr") + 
+  ylab("Häufigkeit") + xlab("Reisezeit (h)") + xlim(0,20) + 
   theme_bw()
 
 ggsave(filename = "tmp/travel_time_scenario_1.jpg", device = "jpeg",
@@ -86,12 +86,26 @@ my_summary = matrixdata %>% filter(alt != "1") %>%
             access_dist = mean(access_distance_m)/1000,
             egress_dist = mean(egress_distance_m)/1000)
 
+types_bbsr_german = c("Kern- und Großst.","Mittelstädte",  "Kleinstädte", "Ländliche Gem.")
+
+my_summary = my_summary %>% 
+  mutate(BBSR_type = recode(BBSR_type, "10: core" = types_bbsr_german[1],
+                            "20: medium_city" = types_bbsr_german[2], 
+                            "30:town" = types_bbsr_german[3], 
+                            "40: rural" = types_bbsr_german[4])) %>% 
+  mutate(BBSR_type = factor(BBSR_type, levels = types_bbsr_german)) %>% 
+  mutate(BBSR_type_d = recode(BBSR_type_d, "10: core" = types_bbsr_german[1],
+                            "20: medium_city" = types_bbsr_german[2], 
+                            "30:town" = types_bbsr_german[3],  
+                            "40: rural" = types_bbsr_german[4])) %>%
+  mutate(BBSR_type_d = factor(BBSR_type_d, levels = types_bbsr_german)) 
+
 my_summary %>%
   ggplot(aes(x = alt, y = time, fill = alt)) + 
   geom_bar(stat = "identity", position = "dodge", color = "gray50") +
   facet_grid(BBSR_type~BBSR_type_d) + 
-  scale_fill_manual(values = c("by walk" = "#764c6e", "by car" = "#c8b7c5"), name = "Access mode") + 
-  ylab("Average time (h)") + xlab("Access mode")  + 
+  scale_fill_manual(values = c("zu Fuß" = "#764c6e", "mit dem Auto" = "#c8b7c5"), name = "Zubringerverkehr") + 
+  ylab("Durchschnittliche Reisezeit (h)") + xlab("Zubringerverkehrsmittel")  + 
   theme_bw()
 
 
@@ -100,12 +114,17 @@ ggsave( filename = "tmp/avg_travel_time_scenario_1_area_type.jpg", device = "jpe
 
 my_summary %>%
   pivot_longer(cols = c(distance, access_dist, egress_dist)) %>%
-  mutate(name_alpha = if_else(name == "distance", 1, 0.25)) %>%
-  ggplot(aes(x = alt, y = value, fill = alt, alpha = name_alpha)) + 
+  mutate(aux_field = if_else(name == "distance", as.character(alt), 
+                             if_else(name == "access_dist", 
+                                     "Zubringerverkehr (Quelleort)", "Zubringerverkehr (Zielort)"))) %>%
+  ggplot(aes(x = alt, y = value, fill = aux_field)) + 
   geom_bar(stat = "identity", position = "stack", color = "gray50") +
   facet_grid(BBSR_type~BBSR_type_d) + 
-  scale_fill_manual(values = c("by walk" = "#764c6e", "by car" = "#c8b7c5"), name = "Access mode") + 
-  ylab("Average distance (km)") + xlab("Access mode")  + 
+  scale_fill_manual(values = c("zu Fuß" = "#764c6e", "mit dem Auto" = "#c8b7c5",
+                               "Zubringerverkehr (Quelleort)" = "gray60",
+                               "Zubringerverkehr (Zielort)" = "gray20"),
+                    name = "Zubringerverkehr") + 
+  ylab("Durchschnittliche Distanz (km)") + xlab("Zubringerverkehrsmittel")  + 
   theme_bw() + guides(alpha = F)
 
 ggsave(filename = "tmp/avg_travel_distance_scenario_1_area_type.jpeg", device = "jpeg",

@@ -6,20 +6,20 @@ population_germany_1_percent = 807834
 
 purpose_order = c("HBW", "HBE", "HBS", "HBR", "HBO", "NHBW", "NHBO")
 
-sd_model_path = "c:/models/mito/germany/"
+sd_model_path = "Z:/projects/2019/BASt/data/results/mito_sd/"
 sd_trips = read_csv(paste(sd_model_path,
-                          "scenOutput/sd_1_percent_20210624/2011/microData/trips.csv", sep = ""))
+                          "sd_1_percent_2011_20210624/2011/microData/trips.csv", sep = ""))
 
 sd_trips_2030 = 
   read_csv(paste(sd_model_path,
-                 "scenOutput/sd_5_percent_2030_20210701/2011/microData/trips.csv", sep = "")) %>% 
+                 "sd_5_percent_2030_20210813/2030/microData/trips.csv", sep = "")) %>% 
   sample_frac(0.2)
 
 
-ld_model_path = "Z:/projects/2019/BASt/data/input_files_LD/germanymodel/output/carlos_base_scenarios_20210708/"
-ld_trips = read_csv(paste(ld_model_path, "0/0_trips.csv", sep  = "")) %>% sample_frac(0.2)
+ld_model_path = "Z:/projects/2019/BASt/data/results/mito_ld/"
+ld_trips = read_csv(paste(ld_model_path, "base_2011_congested_calibrated/0_trips.csv", sep  = "")) %>% sample_frac(0.2)
 
-ld_trips_2030 = read_csv(paste(ld_model_path, "0_2030/0_trips.csv", sep  = "")) %>% sample_frac(0.2)
+ld_trips_2030 = read_csv(paste(ld_model_path, "base_2030_congested/0_trips.csv", sep  = "")) %>% sample_frac(0.2)
 
 
 
@@ -88,6 +88,15 @@ s %>%
   theme(legend.position = "bottom")
 
 
+s %>%
+  filter(segment == "sd") %>% 
+  ggplot(aes(x = as.factor(year), y = n * leg_factor*100/1e6, fill = purpose)) +
+  geom_bar(stat = "identity", position = "stack") +
+  facet_wrap(purpose~., scales = "free", ncol = 4) +
+  theme_bw() + 
+  scale_fill_manual(values = purpose_colors, name = "Purpose") +
+  xlab("Year") + ylab("Legs (Million)")  + 
+  theme(legend.position = "bottom")
 
 
 

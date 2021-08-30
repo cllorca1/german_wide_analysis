@@ -7,7 +7,7 @@ folder = "C:/models/transit_germany/output/skims/"
 scenarios = c("With toll", "Without toll", "With toll", "Without toll")
 groups = c("B", "B", "A", "A")
 folders = c("carWithToll_ab", "carWithoutToll_ab", "carWithToll", "carWithoutToll")
-matrix_names = c("/car_matrix_toll.omx", "/car_matrix_no_toll.omx", "/car_matrix_toll.omx", "/car_matrix_no_toll.omx")
+matrix_names = c("/car_matrix_toll_ab.omx", "/car_matrix_no_toll_ab.omx", "/car_matrix_toll.omx", "/car_matrix_no_toll.omx")
 
 zones = 1:11879
 subsample = sample(zones,300)
@@ -42,15 +42,19 @@ for (i in 1:length(scenarios)){
 }
 
 analysis = analysis %>% mutate(scenario = recode(scenario,
-                                                 "With toll" = "With toll",
-                                                 "Without toll" = "Avoid toll"))
+                                                 "With toll" = "Maut annehmen",
+                                                 "Without toll" = "Maut vermeiden"))
+
+analysis = analysis %>% mutate(group = recode(group,
+                                                 "A" = "Maut auf Autobahnen",
+                                                 "B" = "Maut auf Autobahnen und Bundesstraßen"))
 
 
 analysis %>% filter(distance < 1000e3, distance > 0) %>% 
   ggplot(aes(x=distance/time * 3.6,..density.., color = scenario)) + 
   geom_freqpoly(size = 1.5, binwidth = 1) +
-  scale_color_manual(values = c("Avoid toll" = "#aaaaaa", "With toll" = "#2d2d2d"), name = "Scenario") + 
-  xlab("Average travel speed (km/)") + ylab("Frequency") + theme_bw() + 
+  scale_color_manual(values = c("Maut vermeiden" = "#aaaaaa", "Maut annehmen" = "#2d2d2d"), name = "Szenario") + 
+  xlab("Durchschnittsgeschwindigkeit (km/h)") + ylab("Häufigkeit") + theme_bw() + 
   facet_wrap(.~group)
 
 ggsave(filename = "tmp/speed_scenario_4.jpg", device = "jpeg",
@@ -78,21 +82,21 @@ ggsave(filename = "tmp/distance_scenario_4.jpg", device = "jpeg",
 analysis %>% filter(distance < 1000e3, distance > 0) %>% 
   ggplot(aes(x= time/3600, ..density..,color = scenario)) +
   geom_freqpoly(size = 1.5, binwidth = 0.33) +
-  scale_color_manual(values = c("Avoid toll" = "#aaaaaa", "With toll" = "#2d2d2d"), name = "Scenario") + 
-  xlab("Average time (h)") + ylab("Frequency") + theme_bw() + 
+  scale_color_manual(values = c("Maut vermeiden" = "#aaaaaa", "Maut annehmen" = "#2d2d2d"), name = "Szenario") +
+  xlab("Reisezeit (h)") + ylab("Häufigkeit") + theme_bw() + 
   facet_wrap(.~group)
 
 ggsave(filename = "tmp/time_scenario_4.jpg", device = "jpeg",
        width = 15, height= 10, units = "cm", scale = 1.5)
 
-toll_cost = 0.02 / 1000
+toll_cost = 0.015 / 1000
 operating_cost = 0.08 / 1000
 
 analysis %>% filter(distance < 1000e3, distance > 0) %>% 
   ggplot(aes(x=toll_distance* toll_cost + distance * operating_cost,..density.., color = scenario)) +
   geom_freqpoly(size = 1.5, binwidth = 5) +
-  scale_color_manual(values = c("Avoid toll" = "#aaaaaa", "With toll" = "#2d2d2d"), name = "Scenario") + 
-  xlab("Average travel cost (EUR)") + ylab("Frequency") + theme_bw() + 
+  scale_color_manual(values = c("Maut vermeiden" = "#aaaaaa", "Maut annehmen" = "#2d2d2d"), name = "Szenario") +
+  xlab("Reisekost (EUR)") + ylab("Häufigkeit") + theme_bw() + 
   facet_wrap(.~group)
 
 ggsave(filename = "tmp/cost_scenario_4.jpg", device = "jpeg",
