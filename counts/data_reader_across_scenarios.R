@@ -4,7 +4,7 @@ pacman::p_load(readr, dplyr, tidyr, ggplot2)
 
 model_folder = "Z:/projects/2019/BASt/data/results/matsim/"
 
-scenarios = c("base_2030","4_A_1_2011_freeflow_calibrated", "4_B_1_2011_freeflow_calibrated")
+
 
 simulated_counts = data.frame()
 for (i in 1:length(scenarios)){

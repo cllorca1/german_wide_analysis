@@ -3,19 +3,20 @@ pacman::p_load(here, readr, dplyr, tidyr, ggplot2)
 source(paste(here(), "/counts/data_reader_for_v3.R", sep =""), encoding = "UTF-8")
 
 save_plots = F
-vehicle_colors = c("car" = "#838383","car_ld" = "#414141", "car_sd" = "#c1c1c1" ,"truck" = "#70ab91")
+vehicle_colors = c("Pkw" = "#838383","Pkw-Fernverkehr" = "#414141", 
+                   "Pkw-Nahverkehr" = "#c1c1c1" ,"Lkw" = "#70ab91")
 scale = 100
 re_scale = F
 
 #### observed vs simulated daily
 
 sim = simulated_counts %>%
-  mutate(is_truck = if_else(veh_type == "truck", "truck", "car")) %>%
+  mutate(is_truck = if_else(veh_type == "truck", "Lkw", "Pkw")) %>%
   group_by(station = stationId, is_truck ) %>%
   summarize(count = sum(vehicles) * scale) %>%
   mutate(source = "sim")
 obs = counts_observed_long %>%
-  mutate(is_truck = if_else(veh_type == "truck", "truck", "car")) %>%
+  mutate(is_truck = if_else(veh_type == "truck", "Lkw", "Pkw")) %>%
   group_by(station, is_truck) %>%
   summarise(count = sum(vehicles)) %>%
   mutate(source = "obs")
@@ -28,9 +29,8 @@ if (re_scale){
     pivot_wider(names_from = source, values_from = n) %>% 
     mutate(re_scaling = obs/sim) %>% select(-obs, -sim)
 } else {
-  re_scaling_factors = data.frame(is_truck = c("car", "truck"), re_scaling = c(1.,1.))
+  re_scaling_factors = data.frame(is_truck = c("Pkw", "Lkw"), re_scaling = c(1.,1.))
 }
-
 
 
 
@@ -42,9 +42,9 @@ both %>% pivot_wider(values_from = count, names_from = source) %>%
   ggplot(aes(x = obs, y = sim, color = is_truck)) + geom_point() + 
   geom_abline(intercept = 0, slope = 1, color = "black", size = 1) + 
   theme_bw() +
-  scale_color_manual(values = vehicle_colors, name = "Vehicle type") + 
-  xlab("Observed traffic (veh/day)") +
-  ylab("Simulated traffic (veh/day)")
+  scale_color_manual(values = vehicle_colors, name = "Fahrzeugtyp") + 
+  xlab("Beobachteter Verkehr (Fz/Tag)") +
+  ylab("Simulierter Verkehr (Fz/Tag)")
 
 file_name = paste("tmp/", 
                   gsub(x = gsub(x = Sys.time(),pattern = ":", replacement = ""),pattern = " ", replacement = ""),
@@ -56,12 +56,12 @@ if (save_plots) {
 
 #### totals per time of day
 sim = simulated_counts %>%
-  mutate(is_truck = if_else(veh_type == "truck", "truck", "car")) %>%
+  mutate(is_truck = if_else(veh_type == "truck", "Lkw", "Pkw")) %>%
   group_by(station = stationId, is_truck, veh_type, hour ) %>%
   summarize(count = sum(vehicles) * scale) %>%
   mutate(source = "sim")
 obs = counts_observed_long %>%
-  mutate(is_truck = if_else(veh_type == "truck", "truck", "car")) %>%
+  mutate(is_truck = if_else(veh_type == "truck", "Lkw", "Pkw")) %>%
   group_by(station, is_truck, veh_type, hour) %>%
   summarise(count = sum(vehicles)) %>%
   mutate(source = "obs")
@@ -247,14 +247,14 @@ ggplot(both_wide, aes(x = error, fill = is_truck)) +
 types = counts_observed_long %>% ungroup() %>% select(station, road_type) %>% unique()
 
 sim = simulated_counts %>%
-  mutate(is_truck = if_else(veh_type == "truck", "truck", "car")) %>%
+  mutate(is_truck = if_else(veh_type == "truck", "Lkw", "Pkw")) %>%
   group_by(station = stationId, is_truck, veh_type) %>%
   summarize(count = sum(vehicles) * scale) %>%
   mutate(source = "sim") %>% left_join(types)
 
 
 obs = counts_observed_long %>%
-  mutate(is_truck = if_else(veh_type == "truck", "truck", "car")) %>%
+  mutate(is_truck = if_else(veh_type == "truck", "Lkw", "Pkw")) %>%
   group_by(station, is_truck, veh_type, road_type) %>%
   summarise(count = sum(vehicles)) %>%
   mutate(source = "obs")
@@ -278,6 +278,13 @@ empty_stations = unique(both %>% group_by(station) %>% filter(total_station == 0
 both = both %>% filter(!(station %in% empty_stations$station))
 
 both = both %>% group_by(road_type, veh_type, source) %>% summarise(mean = mean(count), sum_volumes = sum(count))
+
+
+both = both %>% mutate(veh_type = recode(veh_type, 
+                                         "car_sd" = "Pkw-Nahverkehr", 
+                                         "car_ld" = "Pkw-Fernverkehr", 
+                                         "car" = "Pkw", 
+                                         "truck" = "Lkw"))
 
 ggplot(both, aes(x = source, y = mean, fill = veh_type)) +
   geom_bar(stat = "identity", position =  "stack") + 
@@ -315,7 +322,7 @@ sim = simulated_counts %>%
 
 both = sim %>% filter(station %in% obs$station) %>% bind_rows(obs)
 
-both = both %>% left_join(re_scaling_factors)
+#both = both %>% left_join(re_scaling_factors)
 both = both %>% mutate(count = if_else(source == "sim", count * re_scaling, count))
 
 both_wide = both %>% pivot_wider(names_from = source, values_from = count, values_fill =0) %>% 
